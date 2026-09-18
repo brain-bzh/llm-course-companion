@@ -1,0 +1,6 @@
+torch>=2.2.0
+numpy>=1.26.0
+tiktoken>=0.7.0
+
+[test]
+pytest>=8.0.0
