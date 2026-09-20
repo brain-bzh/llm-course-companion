@@ -1,7 +1,7 @@
 """Analytical Parallelism and Cluster Sizing Calculator.
 
 Covers:
-- Session 10: Context and pipeline parallelism (cost models, bubbles, memory & communication calculator).
+- Module 10: Context and pipeline parallelism (cost models, bubbles, memory & communication calculator).
 """
 
 from dataclasses import dataclass

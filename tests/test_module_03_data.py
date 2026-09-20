@@ -1,4 +1,4 @@
-"""Tests for Session 3 — BPE and the data pipeline."""
+"""Tests for Module 3 — BPE and the data pipeline."""
 
 import tempfile
 from minilm.tokenizer import BPETokenizer, get_tokenizer

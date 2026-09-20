@@ -1,7 +1,7 @@
 """Fully Sharded Data Parallel (FSDP) and ZeRO utilities.
 
 Covers:
-- Session 8: FSDP and ZeRO (sharding strategy, auto-wrap policy, activation checkpointing).
+- Module 8: FSDP and ZeRO (sharding strategy, auto-wrap policy, activation checkpointing).
 """
 
 from typing import Optional

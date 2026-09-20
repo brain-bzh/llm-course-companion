@@ -1,8 +1,8 @@
 """Training loop, evaluation, and checkpoint recovery.
 
 Covers:
-- Session 2: Training-loop anatomy (gradient accumulation, clipping, AMP, checkpointing).
-- Session 4: Train a small GPT (training execution, validation monitoring).
+- Module 2: Training-loop anatomy (gradient accumulation, clipping, AMP, checkpointing).
+- Module 4: Train a small GPT (training execution, validation monitoring).
 """
 
 import os

@@ -1,4 +1,4 @@
-"""Session 1 — Transformer from first principles.
+"""Module 1 — Transformer from first principles.
 
 Exit Criterion:
 The model must overfit a tiny batch. If it cannot, the implementation has a bug.
@@ -8,7 +8,7 @@ import torch
 from minilm.model import MiniGPT, GPTConfig
 
 def main():
-    print("=== Session 1: Tiny-Batch Overfitting Test ===")
+    print("=== Module 1: Tiny-Batch Overfitting Test ===")
     config = GPTConfig(
         vocab_size=256,
         block_size=32,
@@ -43,7 +43,7 @@ def main():
     final_loss = loss.item()
     print(f"\nInitial Loss: {initial_loss:.4f} -> Final Loss: {final_loss:.4f}")
     assert final_loss < 0.1, f"Failed to overfit! Final loss {final_loss} >= 0.1"
-    print("SUCCESS: Session 1 exit criterion satisfied (tiny batch overfitted).")
+    print("SUCCESS: Module 1 exit criterion satisfied (tiny batch overfitted).")
 
 if __name__ == "__main__":
     main()

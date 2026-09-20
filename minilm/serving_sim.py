@@ -1,7 +1,7 @@
 """Serving system simulation: Continuous batching and paged memory.
 
 Covers:
-- Session 12: Serving systems (continuous batching, TTFT, ITL, paged cache blocks, throughput).
+- Module 12: Serving systems (continuous batching, TTFT, ITL, paged cache blocks, throughput).
 """
 
 from dataclasses import dataclass, field

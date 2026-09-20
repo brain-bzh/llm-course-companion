@@ -1,8 +1,8 @@
 """Autoregressive text generation utilities.
 
 Covers:
-- Session 4: Train a small GPT (sampling as a qualitative diagnostic).
-- Session 11: KV-cached decoding (cached vs uncached generation).
+- Module 4: Train a small GPT (sampling as a qualitative diagnostic).
+- Module 11: KV-cached decoding (cached vs uncached generation).
 """
 
 from typing import Optional, List

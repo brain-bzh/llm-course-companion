@@ -1,4 +1,4 @@
-"""Tests for Session 2 — Training-loop anatomy."""
+"""Tests for Module 2 — Training-loop anatomy."""
 
 import torch
 from minilm.model import MiniGPT, GPTConfig

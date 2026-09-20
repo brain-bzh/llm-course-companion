@@ -1,4 +1,4 @@
-"""Session 5 — Data selection.
+"""Module 5 — Data selection.
 
 Demonstrates:
 - Heuristic filtering (length, alphanumeric ratio).
@@ -16,7 +16,7 @@ from minilm.data_selection import (
 )
 
 def main():
-    print("=== Session 5: Data Selection & Controlled Subsets ===")
+    print("=== Module 5: Data Selection & Controlled Subsets ===")
     tokenizer = get_tokenizer()
 
     raw_corpus = [

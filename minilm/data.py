@@ -1,7 +1,7 @@
 """Data pipeline: document packing, binary memmaps, and batch loading.
 
 Covers:
-- Session 3: BPE and the data pipeline (packing, boundaries, memmap shards, batch loader).
+- Module 3: BPE and the data pipeline (packing, boundaries, memmap shards, batch loader).
 """
 
 import os

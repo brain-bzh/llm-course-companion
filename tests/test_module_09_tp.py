@@ -1,4 +1,4 @@
-"""Tests for Session 9 — Tensor parallelism."""
+"""Tests for Module 9 — Tensor parallelism."""
 
 import torch
 import torch.nn as nn

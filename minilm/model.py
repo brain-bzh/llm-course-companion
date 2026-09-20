@@ -1,9 +1,9 @@
 """Minimal Decoder-Only Transformer (MiniGPT).
 
 Covers:
-- Session 1: Transformer from first principles (embeddings, causal attention, MLP, Pre-LN).
-- Session 6: SDPA vs explicit attention toggle.
-- Session 11: Key-Value cache support for incremental autoregressive decoding.
+- Module 1: Transformer from first principles (embeddings, causal attention, MLP, Pre-LN).
+- Module 6: SDPA vs explicit attention toggle.
+- Module 11: Key-Value cache support for incremental autoregressive decoding.
 """
 
 from dataclasses import dataclass
@@ -72,7 +72,7 @@ class CausalSelfAttention(nn.Module):
         k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
 
-        # KV-Cache handling (Session 11)
+        # KV-Cache handling (Module 11)
         if kv_cache is not None:
             past_k, past_v = kv_cache
             k = torch.cat([past_k, k], dim=2)
@@ -82,7 +82,7 @@ class CausalSelfAttention(nn.Module):
         total_T = k.size(2)
 
         if self.config.use_sdpa and hasattr(F, "scaled_dot_product_attention") and kv_cache is None:
-            # Fast PyTorch SDPA (Session 6) for non-cached prefill/training
+            # Fast PyTorch SDPA (Module 6) for non-cached prefill/training
             y = F.scaled_dot_product_attention(
                 q, k, v,
                 attn_mask=None,
@@ -90,7 +90,7 @@ class CausalSelfAttention(nn.Module):
                 is_causal=True,
             )
         else:
-            # Explicit attention computation (Session 1 & incremental decode in Session 11)
+            # Explicit attention computation (Module 1 & incremental decode in Module 11)
             # QK^T / sqrt(d_k) -> (B, n_head, T, total_T)
             att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(self.head_dim))
             if kv_cache is None:

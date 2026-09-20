@@ -1,4 +1,4 @@
-"""Session 13 — Beyond dense Transformers.
+"""Module 13 — Beyond dense Transformers.
 
 Demonstrates:
 - Sparse Mixture of Experts (MoE) layer with top-k router.
@@ -11,7 +11,7 @@ from minilm.model import GPTConfig, MLP
 from minilm.moe import SparseMoELayer
 
 def main():
-    print("=== Session 13: Beyond Dense Transformers (Sparse MoE) ===")
+    print("=== Module 13: Beyond Dense Transformers (Sparse MoE) ===")
     config = GPTConfig(
         vocab_size=1000,
         block_size=64,

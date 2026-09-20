@@ -1,4 +1,4 @@
-"""Session 11 — KV-cached decoding.
+"""Module 11 — KV-cached decoding.
 
 Demonstrates:
 - Incremental decoding with Key-Value Cache.
@@ -11,7 +11,7 @@ from minilm.model import MiniGPT, GPTConfig
 from minilm.kv_cache import benchmark_generation_speed
 
 def main():
-    print("=== Session 11: KV-Cached Decoding Benchmark & Equivalence ===")
+    print("=== Module 11: KV-Cached Decoding Benchmark & Equivalence ===")
     config = GPTConfig(
         vocab_size=1000,
         block_size=128,
@@ -35,7 +35,7 @@ def main():
     print(f"Exact Token Match:        {res['exact_token_match']}")
 
     assert res["exact_token_match"], "Cached and uncached generations diverged!"
-    print("SUCCESS: Session 11 deliverable verified (KV-cache is mathematically identical and faster).")
+    print("SUCCESS: Module 11 deliverable verified (KV-cache is mathematically identical and faster).")
 
 if __name__ == "__main__":
     main()

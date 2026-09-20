@@ -1,7 +1,7 @@
 """Tokenizer implementations: Byte-Pair Encoding (BPE), Tiktoken, and Char fallback.
 
 Covers:
-- Session 3: BPE and the data pipeline (vocabulary, byte-level BPE, special tokens, encoding/decoding).
+- Module 3: BPE and the data pipeline (vocabulary, byte-level BPE, special tokens, encoding/decoding).
 """
 
 from collections import Counter

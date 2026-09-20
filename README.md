@@ -32,7 +32,7 @@ uv sync
 uv run pytest tests/ -v
 ```
 
-To run any session demo script:
+To run any module demo script:
 
 ```bash
 uv run python scripts/01_overfit.py
@@ -41,9 +41,9 @@ uv run python scripts/11_kv_cache_bench.py
 
 ---
 
-## 3. Session-by-Session Topic Coverage
+## 3. Module-by-Module Topic Coverage
 
-| Session | Topic | Conceptual Coverage | Companion Code Module | Runnable Script | Verification / Milestone |
+| Module | Topic | Conceptual Coverage | Companion Code Module | Runnable Script | Verification / Milestone |
 | :---: | :--- | :--- | :--- | :--- | :--- |
 | **1** | **Transformer from first principles** | Token & position embeddings, scaled dot-product attention, causal masking, Multi-Head Attention, Pre-LN residual connections, MLP, and LM head with tied weights. | [`minilm/model.py`](minilm/model.py) | [`scripts/01_overfit.py`](scripts/01_overfit.py) | **Exit criterion**: Tiny-batch overfit (`loss < 0.1`) & causal masking invariance. |
 | **2** | **Training-loop anatomy** | Cross-entropy loss, AdamW decoupled weight decay (2D vs 1D parameters), cosine decay with linear warmup, gradient accumulation, norm clipping, and checkpoint save/recovery. | [`minilm/optim.py`](minilm/optim.py)<br>[`minilm/train.py`](minilm/train.py) | [`scripts/02_training_step.py`](scripts/02_training_step.py) | Optimizer parameter grouping test & checkpoint round-trip. |
@@ -66,7 +66,7 @@ uv run python scripts/11_kv_cache_bench.py
 ```text
 companion/
 ├── pyproject.toml              # Environment definition (torch, numpy, tiktoken, pytest)
-├── README.md                   # This overview & session mapping guide
+├── README.md                   # This overview & module mapping guide
 ├── minilm/                     # Core library
 │   ├── __init__.py             # Public exports (MiniGPT, GPTConfig, get_tokenizer)
 │   ├── model.py                # Decoder-only GPT with causal attention & KV hooks
@@ -84,27 +84,27 @@ companion/
 │   ├── kv_cache.py             # Key-Value cache manager & benchmark
 │   ├── serving_sim.py          # Continuous batching & paged memory simulation
 │   └── moe.py                  # Sparse MoE layer with top-k router & aux loss
-├── scripts/                    # Standalone executable session demonstrations
-│   ├── 01_overfit.py           # Session 1: Tiny-batch overfit test
-│   ├── 02_training_step.py     # Session 2: Optimizer step & checkpoint test
-│   ├── 03_prepare_dataset.py   # Session 3: BPE packing to binary memmap
-│   ├── 04_train_baseline.py    # Session 4: Baseline training & text sampling
-│   ├── 05_data_selection.py    # Session 5: Quality filter & deduplication demo
-│   ├── 06_single_gpu_perf.py   # Session 6: Memory breakdown, FLOPs & MFU
-│   ├── 07_train_ddp.py         # Session 7: DDP distributed training launcher
-│   ├── 08_fsdp_experiment.py   # Session 8: ZeRO-1/2/3 memory scaling comparison
-│   ├── 09_tensor_parallel.py   # Session 9: TP column/row linear equivalence
-│   ├── 10_parallelism_sizing.py# Session 10: Multidimensional cluster sizing
-│   ├── 11_kv_cache_bench.py    # Session 11: KV-cache vs uncached benchmark
-│   ├── 12_serving_benchmark.py # Session 12: Continuous batching simulation
-│   └── 13_moe_exploration.py   # Session 13: Sparse MoE capacity vs FLOPs
+├── scripts/                    # Standalone executable module demonstrations
+│   ├── 01_overfit.py           # Module 1: Tiny-batch overfit test
+│   ├── 02_training_step.py     # Module 2: Optimizer step & checkpoint test
+│   ├── 03_prepare_dataset.py   # Module 3: BPE packing to binary memmap
+│   ├── 04_train_baseline.py    # Module 4: Baseline training & text sampling
+│   ├── 05_data_selection.py    # Module 5: Quality filter & deduplication demo
+│   ├── 06_single_gpu_perf.py   # Module 6: Memory breakdown, FLOPs & MFU
+│   ├── 07_train_ddp.py         # Module 7: DDP distributed training launcher
+│   ├── 08_fsdp_experiment.py   # Module 8: ZeRO-1/2/3 memory scaling comparison
+│   ├── 09_tensor_parallel.py   # Module 9: TP column/row linear equivalence
+│   ├── 10_parallelism_sizing.py# Module 10: Multidimensional cluster sizing
+│   ├── 11_kv_cache_bench.py    # Module 11: KV-cache vs uncached benchmark
+│   ├── 12_serving_benchmark.py # Module 12: Continuous batching simulation
+│   └── 13_moe_exploration.py   # Module 13: Sparse MoE capacity vs FLOPs
 └── tests/                      # Automated unit test suite
-    ├── test_session_01_model.py
-    ├── test_session_02_optim.py
-    ├── test_session_03_data.py
-    ├── test_session_09_tp.py
-    ├── test_session_11_kv_cache.py
-    └── test_session_13_moe.py
+    ├── test_module_01_model.py
+    ├── test_module_02_optim.py
+    ├── test_module_03_data.py
+    ├── test_module_09_tp.py
+    ├── test_module_11_kv_cache.py
+    └── test_module_13_moe.py
 ```
 
 ---
@@ -119,9 +119,9 @@ uv run pytest -v
 ```
 
 Expected test outcomes:
-- `test_session_01_model.py`: Verifies output shape, causal masking invariance (future tokens cannot affect past logits), and tiny-batch overfit.
-- `test_session_02_optim.py`: Verifies weight decay applies only to $\ge 2\text{D}$ tensors, and verifies warmup/cosine decay schedules.
-- `test_session_03_data.py`: Verifies BPE encoding/decoding and binary memmap batch alignment.
-- `test_session_09_tp.py`: Verifies numerical equivalence between partitioned Column/Row linear layers and standard Linear layers.
-- `test_session_11_kv_cache.py`: Verifies that KV-cached incremental generation produces tokens and logits identical to full uncached generation.
-- `test_session_13_moe.py`: Verifies MoE output shapes, top-k dispatch, and positive auxiliary load-balancing loss.
+- `test_module_01_model.py`: Verifies output shape, causal masking invariance (future tokens cannot affect past logits), and tiny-batch overfit.
+- `test_module_02_optim.py`: Verifies weight decay applies only to $\ge 2\text{D}$ tensors, and verifies warmup/cosine decay schedules.
+- `test_module_03_data.py`: Verifies BPE encoding/decoding and binary memmap batch alignment.
+- `test_module_09_tp.py`: Verifies numerical equivalence between partitioned Column/Row linear layers and standard Linear layers.
+- `test_module_11_kv_cache.py`: Verifies that KV-cached incremental generation produces tokens and logits identical to full uncached generation.
+- `test_module_13_moe.py`: Verifies MoE output shapes, top-k dispatch, and positive auxiliary load-balancing loss.

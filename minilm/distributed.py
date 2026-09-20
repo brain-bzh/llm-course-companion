@@ -1,7 +1,7 @@
 """Distributed Data Parallelism (DDP) helpers.
 
 Covers:
-- Session 7: Distributed data parallelism (setup, all-reduce, rank synchronization, token accounting).
+- Module 7: Distributed data parallelism (setup, all-reduce, rank synchronization, token accounting).
 """
 
 import os

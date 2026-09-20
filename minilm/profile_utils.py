@@ -1,7 +1,7 @@
 """Profiling utilities: FLOPs counter, MFU estimation, and memory breakdown.
 
 Covers:
-- Session 6: Single-GPU performance (FLOPs, throughput, MFU, memory accounting).
+- Module 6: Single-GPU performance (FLOPs, throughput, MFU, memory accounting).
 """
 
 from typing import Dict, Any

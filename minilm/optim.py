@@ -1,7 +1,7 @@
 """Optimizer and Learning Rate Schedule configuration.
 
 Covers:
-- Session 2: Training-loop anatomy (AdamW weight decay grouping, learning rate schedules).
+- Module 2: Training-loop anatomy (AdamW weight decay grouping, learning rate schedules).
 """
 
 import math

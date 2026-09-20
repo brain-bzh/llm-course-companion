@@ -1,7 +1,7 @@
 """Key-Value (KV) Cache structure and decoding analysis.
 
 Covers:
-- Session 11: KV-cached decoding (cache structure, prefill/decode timing, memory footprint).
+- Module 11: KV-cached decoding (cache structure, prefill/decode timing, memory footprint).
 """
 
 from typing import List, Tuple, Optional

@@ -1,4 +1,4 @@
-"""Session 10 — Context and pipeline parallelism.
+"""Module 10 — Context and pipeline parallelism.
 
 Demonstrates:
 - Analytical calculator for 3D/4D parallelism (DP x TP x PP x CP).
@@ -9,7 +9,7 @@ Demonstrates:
 from minilm.parallelism_calc import ModelSpecs, ParallelismConfig, calculate_memory_and_scaling
 
 def main():
-    print("=== Session 10: Multidimensional Parallelism & Cluster Sizing ===")
+    print("=== Module 10: Multidimensional Parallelism & Cluster Sizing ===")
 
     # Case: 7B LLaMA-style model
     llama7b = ModelSpecs(

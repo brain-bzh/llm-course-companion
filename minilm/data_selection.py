@@ -1,7 +1,7 @@
 """Data selection, filtering, deduplication, and quality scoring.
 
 Covers:
-- Session 5: Data selection (filtering, deduplication, quality signals, controlled A/B subsets).
+- Module 5: Data selection (filtering, deduplication, quality signals, controlled A/B subsets).
 """
 
 import hashlib

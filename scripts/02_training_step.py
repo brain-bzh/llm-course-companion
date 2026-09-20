@@ -1,4 +1,4 @@
-"""Session 2 — Training-loop anatomy.
+"""Module 2 — Training-loop anatomy.
 
 Demonstrates:
 - Decoupled weight decay parameter grouping.
@@ -14,7 +14,7 @@ from minilm.optim import configure_optimizers, get_lr_cosine_schedule
 from minilm.train import train_step, optimizer_step, save_checkpoint, load_checkpoint
 
 def main():
-    print("=== Session 2: Training Loop Anatomy ===")
+    print("=== Module 2: Training Loop Anatomy ===")
     config = GPTConfig(vocab_size=128, block_size=16, n_layer=2, n_head=2, n_embd=32, bias=True)
     model = MiniGPT(config)
     optimizer = configure_optimizers(model, weight_decay=0.1, learning_rate=1e-3)

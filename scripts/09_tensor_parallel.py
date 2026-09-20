@@ -1,4 +1,4 @@
-"""Session 9 — Tensor parallelism.
+"""Module 9 — Tensor parallelism.
 
 Demonstrates:
 - ColumnParallelLinear: partitioning weight matrix along output columns.
@@ -12,7 +12,7 @@ from minilm.model import GPTConfig, MLP
 from minilm.tensor_parallel import ColumnParallelLinear, RowParallelLinear
 
 def main():
-    print("=== Session 9: Tensor Parallelism Toy Layer ===")
+    print("=== Module 9: Tensor Parallelism Toy Layer ===")
     n_embd = 64
     d_ff = 4 * n_embd
     world_size = 2  # Simulate 2 tensor parallel ranks

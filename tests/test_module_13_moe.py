@@ -1,4 +1,4 @@
-"""Tests for Session 13 — Beyond dense Transformers (Sparse MoE)."""
+"""Tests for Module 13 — Beyond dense Transformers (Sparse MoE)."""
 
 import torch
 from minilm.model import GPTConfig

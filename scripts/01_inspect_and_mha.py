@@ -1,4 +1,4 @@
-"""Session 1 — Inspect Transformer and Reimplement Naive MHA.
+"""Module 1 — Inspect Transformer and Reimplement Naive MHA.
 
 Covers:
 - Part 1: Inspect reference Transformer parameters, tensor dimensions, and state dict.
@@ -65,7 +65,7 @@ class NaiveMultiHeadAttention(nn.Module):
 
 
 def main():
-    print("=== Session 1: Inspect Transformer & Naive MHA ===")
+    print("=== Module 1: Inspect Transformer & Naive MHA ===")
 
     # -------------------------------------------------------------
     # Part 1: Inspect Reference Transformer
@@ -124,7 +124,7 @@ def main():
     final_loss = loss.item()
     print(f"Final loss: {final_loss:.4f}")
     assert final_loss < 0.1, f"Failed exit criterion: final loss {final_loss} >= 0.1"
-    print("\nSUCCESS: All Session 1 checks and exit criteria satisfied!")
+    print("\nSUCCESS: All Module 1 checks and exit criteria satisfied!")
 
 
 if __name__ == "__main__":

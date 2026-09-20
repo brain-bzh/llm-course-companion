@@ -1,4 +1,4 @@
-"""Session 4 — Train a small GPT.
+"""Module 4 — Train a small GPT.
 
 Demonstrates:
 - Baseline training run with healthy validation loss tracking.
@@ -15,7 +15,7 @@ from minilm.train import train_step, optimizer_step, evaluate_loss
 from minilm.generate import generate_uncached
 
 def main():
-    print("=== Session 4: Train Baseline Small GPT ===")
+    print("=== Module 4: Train Baseline Small GPT ===")
     tokenizer = get_tokenizer()
 
     # Small synthetic corpus of repetitive rhythmic text for fast learning

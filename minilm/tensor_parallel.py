@@ -1,7 +1,7 @@
 """Megatron-style Tensor Parallelism (TP).
 
 Covers:
-- Session 9: Tensor parallelism (ColumnParallelLinear, RowParallelLinear, toy sharded MLP).
+- Module 9: Tensor parallelism (ColumnParallelLinear, RowParallelLinear, toy sharded MLP).
 """
 
 from typing import Optional

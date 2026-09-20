@@ -1,4 +1,4 @@
-"""Tests for Session 1 — Transformer from first principles."""
+"""Tests for Module 1 — Transformer from first principles."""
 
 import pytest
 import torch
@@ -46,7 +46,7 @@ def test_causal_masking_invariance():
 
 
 def test_tiny_batch_overfit():
-    """Session 1 Exit Criterion: model must overfit a tiny batch."""
+    """Module 1 Exit Criterion: model must overfit a tiny batch."""
     torch.manual_seed(42)
     config = GPTConfig(vocab_size=64, block_size=16, n_layer=2, n_head=2, n_embd=32)
     model = MiniGPT(config)

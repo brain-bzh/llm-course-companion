@@ -1,4 +1,4 @@
-"""Session 3 — BPE and the data pipeline.
+"""Module 3 — BPE and the data pipeline.
 
 Demonstrates:
 - Training an educational Byte-level BPE tokenizer from scratch.
@@ -14,7 +14,7 @@ from minilm.data import pack_documents, BinaryShardedDataset
 
 
 def main():
-    print("=== Session 3: BPE Tokenizer and Packed Data Pipeline ===")
+    print("=== Module 3: BPE Tokenizer and Packed Data Pipeline ===")
 
     # 1. Raw corpus for training the BPE tokenizer
     sample_corpus = """
@@ -84,7 +84,7 @@ def main():
     print(f"Target shift invariant verified (Y[:, :-1] == X[:, 1:]): {is_shifted}")
     assert is_shifted, "Target offset invariant failed!"
 
-    print("\nSUCCESS: Session 3 data pipeline verified!")
+    print("\nSUCCESS: Module 3 data pipeline verified!")
 
 
 if __name__ == "__main__":
