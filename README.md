@@ -1,6 +1,6 @@
 # MiniLM Companion Code Repository
 
-Companion codebase for the course **"Training and Scaling Language Models: From First Principles to Efficient Serving"**.
+Companion codebase for the course **"Training and Scaling Language Models: From First Principles to Efficient Serving"**, designed by the [BRAIN team](https://www.imt-atlantique.fr/en/research-innovation/teams/brain) for [IMT Atlantique](https://www.imt-atlantique.fr/en).
 
 This repository provides an ultra-lean, pedagogical implementation of an end-to-end language modeling system. It is designed to be completely inspectable without heavy third-party framework abstractions.
 
