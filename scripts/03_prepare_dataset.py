@@ -1,6 +1,7 @@
-"""Module 3 — BPE and the data pipeline.
+"""Module 3 — Pretraining data pipeline.
 
 Demonstrates:
+- Fast heuristic document filtering (length and alphanumeric checks).
 - Training an educational Byte-level BPE tokenizer from scratch.
 - Inspecting learned subword merges and compression ratios.
 - Document boundary handling (<|endoftext|>).
@@ -10,11 +11,27 @@ Demonstrates:
 
 import tempfile
 from minilm.tokenizer import BPETokenizer
-from minilm.data import pack_documents, BinaryShardedDataset
+from minilm.data import pack_documents, BinaryShardedDataset, filter_by_length, filter_by_alpha_ratio
 
 
 def main():
-    print("=== Module 3: BPE Tokenizer and Packed Data Pipeline ===")
+    print("=== Module 3: Pretraining Data Pipeline ===")
+
+    # 0. Heuristic filtering demonstration
+    print("\n--- Step 0: High-Throughput Heuristic Document Filtering ---")
+    raw_docs = [
+        "Language models are trained on large text corpora using self-supervised learning.",
+        "Too short",  # < 50 chars -> will be pruned
+        "### !!! $$$ %%% @@@ *** ^^^ &&&",  # junk / low alphanumeric ratio -> will be pruned
+        "Continuous batching and paged memory increase serving throughput under high load.",
+        "The Transformer architecture relies on multi-head scaled dot-product attention.",
+    ]
+    retained_docs = [
+        d for d in raw_docs
+        if filter_by_length(d, min_chars=20) and filter_by_alpha_ratio(d, min_ratio=0.6)
+    ]
+    print(f"Raw documents: {len(raw_docs)} -> Retained clean documents: {len(retained_docs)}")
+    print(f"Discarded {len(raw_docs) - len(retained_docs)} noisy documents to conserve GPU FLOPs.")
 
     # 1. Raw corpus for training the BPE tokenizer
     sample_corpus = """

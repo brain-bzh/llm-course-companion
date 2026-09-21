@@ -1,4 +1,4 @@
-"""Module 7 — Distributed data parallelism (DDP).
+"""Module 6 — Distributed data parallelism (DDP).
 
 Can be executed standalone or via torchrun:
     torchrun --nproc_per_node=2 scripts/07_train_ddp.py
@@ -23,7 +23,7 @@ def main():
     device = torch.device(f"cuda:{local_rank}" if torch.cuda.is_available() else "cpu")
 
     if rank == 0:
-        print(f"=== Module 7: Distributed Data Parallelism ===")
+        print(f"=== Module 6: Distributed Data Parallelism ===")
         print(f"World Size: {world_size} | Distributed: {is_dist}")
 
     config = GPTConfig(vocab_size=256, block_size=32, n_layer=2, n_head=2, n_embd=64)

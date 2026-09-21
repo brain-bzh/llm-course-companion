@@ -1,4 +1,4 @@
-"""Module 6 — Single-GPU performance.
+"""Module 5 — Single-GPU performance.
 
 Demonstrates:
 - Memory breakdown (parameters, gradients, optimizer states).
@@ -14,7 +14,7 @@ from minilm.optim import configure_optimizers
 from minilm.profile_utils import compute_flops_per_token, estimate_mfu, memory_breakdown
 
 def main():
-    print("=== Module 6: Single-GPU Performance & Profiling ===")
+    print("=== Module 5: Single-GPU Performance & Profiling ===")
     config = GPTConfig(
         vocab_size=50257,
         block_size=512,

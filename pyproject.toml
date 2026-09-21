@@ -1,7 +1,7 @@
 [project]
 name = "minilm-companion"
 version = "0.1.0"
-description = "Companion codebase for Training Language Models: From First Principles to Efficient Serving"
+description = "Companion codebase for Training and Scaling Language Models: From First Principles to Efficient Serving"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

@@ -1,4 +1,4 @@
-"""Tests for Module 13 — Beyond dense Transformers (Sparse MoE)."""
+"""Tests for Module 12 — Frontier architectures."""
 
 import torch
 from minilm.model import GPTConfig

@@ -1,13 +1,27 @@
-"""Data pipeline: document packing, binary memmaps, and batch loading.
+"""Data pipeline: document filtering, packing, binary memmaps, and batch loading.
 
 Covers:
-- Module 3: BPE and the data pipeline (packing, boundaries, memmap shards, batch loader).
+- Module 3: Pretraining data pipeline (filtering, packing, boundaries, memmap shards, batch loader).
 """
 
 import os
 from typing import List, Tuple, Generator
 import numpy as np
 import torch
+
+
+def filter_by_length(doc: str, min_chars: int = 50, max_chars: int = 100_000) -> bool:
+    """Filter out documents that are too short (noise) or pathologically long."""
+    length = len(doc.strip())
+    return min_chars <= length <= max_chars
+
+
+def filter_by_alpha_ratio(doc: str, min_ratio: float = 0.6) -> bool:
+    """Filter out documents with too few alphabetic characters (e.g. junk binary or logs)."""
+    if not doc:
+        return False
+    alphanumeric = sum(c.isalnum() or c.isspace() for c in doc)
+    return (alphanumeric / len(doc)) >= min_ratio
 
 
 def pack_documents(

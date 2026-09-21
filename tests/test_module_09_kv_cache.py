@@ -1,4 +1,4 @@
-"""Tests for Module 11 — KV-cached decoding."""
+"""Tests for Module 10 — KV-cached decoding."""
 
 import torch
 from minilm.model import MiniGPT, GPTConfig

@@ -1,6 +1,6 @@
 # MiniLM Companion Code Repository
 
-Companion codebase for the course **"Training Language Models: From First Principles to Efficient Serving"**.
+Companion codebase for the course **"Training and Scaling Language Models: From First Principles to Efficient Serving"**.
 
 This repository provides an ultra-lean, pedagogical implementation of an end-to-end language modeling system. It is designed to be completely inspectable without heavy third-party framework abstractions.
 
@@ -87,24 +87,24 @@ companion/
 ├── scripts/                    # Standalone executable module demonstrations
 │   ├── 01_overfit.py           # Module 1: Tiny-batch overfit test
 │   ├── 02_training_step.py     # Module 2: Optimizer step & checkpoint test
+│   ├── 02_train_baseline.py    # Module 2: Baseline training & text sampling
 │   ├── 03_prepare_dataset.py   # Module 3: BPE packing to binary memmap
-│   ├── 04_train_baseline.py    # Module 4: Baseline training & text sampling
-│   ├── 05_data_selection.py    # Module 5: Quality filter & deduplication demo
-│   ├── 06_single_gpu_perf.py   # Module 6: Memory breakdown, FLOPs & MFU
-│   ├── 07_train_ddp.py         # Module 7: DDP distributed training launcher
-│   ├── 08_fsdp_experiment.py   # Module 8: ZeRO-1/2/3 memory scaling comparison
-│   ├── 09_tensor_parallel.py   # Module 9: TP column/row linear equivalence
-│   ├── 10_parallelism_sizing.py# Module 10: Multidimensional cluster sizing
-│   ├── 11_kv_cache_bench.py    # Module 11: KV-cache vs uncached benchmark
-│   ├── 12_serving_benchmark.py # Module 12: Continuous batching simulation
-│   └── 13_moe_exploration.py   # Module 13: Sparse MoE capacity vs FLOPs
+│   ├── 04_data_selection.py    # Module 4: Quality filter & deduplication demo
+│   ├── 05_single_gpu_perf.py   # Module 5: Memory breakdown, FLOPs & MFU
+│   ├── 06_train_ddp.py         # Module 6: DDP distributed training launcher
+│   ├── 07_fsdp_experiment.py   # Module 7: ZeRO-1/2/3 memory scaling comparison
+│   ├── 08_tensor_parallel.py   # Module 8: TP column/row linear equivalence
+│   ├── 09_parallelism_sizing.py# Module 9: Multidimensional cluster sizing & hierarchy
+│   ├── 10_kv_cache_bench.py    # Module 10: KV-cache vs uncached benchmark
+│   ├── 11_serving_benchmark.py # Module 11: Continuous batching simulation
+│   └── 12_frontier_exploration.py # Module 12: Speculative decode, MLA, linear attention & MoE
 └── tests/                      # Automated unit test suite
     ├── test_module_01_model.py
     ├── test_module_02_optim.py
     ├── test_module_03_data.py
-    ├── test_module_09_tp.py
-    ├── test_module_11_kv_cache.py
-    └── test_module_13_moe.py
+    ├── test_module_08_tp.py
+    ├── test_module_10_kv_cache.py
+    └── test_module_12_frontier.py
 ```
 
 ---

@@ -1,4 +1,4 @@
-"""Module 12 — Serving systems.
+"""Module 11 — Serving systems.
 
 Demonstrates:
 - Continuous (iteration-level) batching vs static batching.
@@ -9,7 +9,7 @@ Demonstrates:
 from minilm.serving_sim import Request, ContinuousBatchingSimulator
 
 def main():
-    print("=== Module 12: Continuous Batching & Serving Benchmark ===")
+    print("=== Module 11: Continuous Batching & Serving Benchmark ===")
 
     sim = ContinuousBatchingSimulator(
         max_batch_size=4,
