@@ -21,9 +21,9 @@ minilm_companion.egg-info/SOURCES.txt
 minilm_companion.egg-info/dependency_links.txt
 minilm_companion.egg-info/requires.txt
 minilm_companion.egg-info/top_level.txt
-tests/test_session_01_model.py
-tests/test_session_02_optim.py
-tests/test_session_03_data.py
-tests/test_session_09_tp.py
-tests/test_session_11_kv_cache.py
-tests/test_session_13_moe.py
+tests/test_module_01_model.py
+tests/test_module_02_optim.py
+tests/test_module_03_data.py
+tests/test_module_07_tp.py
+tests/test_module_09_kv_cache.py
+tests/test_module_11_frontier.py
