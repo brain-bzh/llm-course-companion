@@ -1,6 +1,6 @@
-# MiniLM Companion Code Repository
+# MiniLM Companion Code
 
-Companion codebase for the course **"Training and Scaling Language Models: From First Principles to Efficient Serving"**, designed by the [BRAIN team](https://www.imt-atlantique.fr/en/research-innovation/teams/brain) for [IMT Atlantique](https://www.imt-atlantique.fr/en).
+Companion codebase for [**Training and Scaling Language Models: From First Principles to Efficient Serving**](https://brain-bzh.github.io/llm-course/), designed by the [BRAIN team](https://www.imt-atlantique.fr/en/research-innovation/teams/brain) for [IMT Atlantique](https://www.imt-atlantique.fr/en).
 
 This repository provides an ultra-lean, pedagogical implementation of an end-to-end language modeling system. It is designed to be completely inspectable without heavy third-party framework abstractions.
 
@@ -13,7 +13,7 @@ This repository provides an ultra-lean, pedagogical implementation of an end-to-
   - `numpy` (Binary memory mapping and numerical helpers)
   - `tiktoken` (Standard Byte-Pair Encoding tokenizer for GPT-style models)
   - *(`pytest` for test verification)*
-- **Self-Contained & Isolated**: Lives in `companion/` with its own `pyproject.toml`, keeping the root course website environment lightweight and fast.
+- **Self-Contained & Isolated**: This repository has its own `pyproject.toml` and can be cloned independently. Course maintainers also pin it as the `companion/` submodule of [`brain-bzh/llm-course`](https://github.com/brain-bzh/llm-course).
 - **Pedagogical Transparency**: Every mechanism (attention, causal masking, weight decay grouping, token packing, KV caching, tensor parallelism, serving queues, MoE routing) is written in readable, well-commented PyTorch.
 
 ---
