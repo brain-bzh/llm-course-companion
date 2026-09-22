@@ -9,9 +9,9 @@ Demonstrates:
 
 import time
 import torch
-from minilm.model import MiniGPT, GPTConfig
-from minilm.optim import configure_optimizers
-from minilm.profile_utils import compute_flops_per_token, estimate_mfu, memory_breakdown
+from nanolm.model import MiniGPT, GPTConfig
+from nanolm.optim import configure_optimizers
+from nanolm.profile_utils import compute_flops_per_token, estimate_mfu, memory_breakdown
 
 def main():
     print("=== Module 5: Single-GPU Performance & Profiling ===")

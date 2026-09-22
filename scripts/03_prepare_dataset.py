@@ -10,8 +10,8 @@ Demonstrates:
 """
 
 import tempfile
-from minilm.tokenizer import BPETokenizer
-from minilm.data import pack_documents, BinaryShardedDataset, filter_by_length, filter_by_alpha_ratio
+from nanolm.tokenizer import BPETokenizer
+from nanolm.data import pack_documents, BinaryShardedDataset, filter_by_length, filter_by_alpha_ratio
 
 
 def main():

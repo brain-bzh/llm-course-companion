@@ -1,8 +1,8 @@
 """Tests for Module 12 — Frontier architectures."""
 
 import torch
-from minilm.model import GPTConfig
-from minilm.moe import SparseMoELayer
+from nanolm.model import GPTConfig
+from nanolm.moe import SparseMoELayer
 
 
 def test_sparse_moe_forward_and_loss():

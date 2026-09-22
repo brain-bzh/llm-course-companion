@@ -8,8 +8,8 @@ Demonstrates:
 """
 
 import torch
-from minilm.model import GPTConfig, MLP
-from minilm.moe import SparseMoELayer
+from nanolm.model import GPTConfig, MLP
+from nanolm.moe import SparseMoELayer
 
 
 def speculative_decoding_analysis():

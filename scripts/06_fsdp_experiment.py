@@ -5,9 +5,9 @@ Demonstrates:
 - TransformerBlock auto-wrap policy formulation.
 """
 
-from minilm.model import MiniGPT, GPTConfig
-from minilm.profile_utils import memory_breakdown
-from minilm.optim import configure_optimizers
+from nanolm.model import MiniGPT, GPTConfig
+from nanolm.profile_utils import memory_breakdown
+from nanolm.optim import configure_optimizers
 
 def main():
     print("=== Module 7: FSDP & ZeRO Sharding Analysis ===")

@@ -6,7 +6,7 @@ Demonstrates:
 - Measuring Time To First Token (TTFT), Inter-Token Latency (ITL), and Request Throughput.
 """
 
-from minilm.serving_sim import Request, ContinuousBatchingSimulator
+from nanolm.serving_sim import Request, ContinuousBatchingSimulator
 
 def main():
     print("=== Module 11: Continuous Batching & Serving Benchmark ===")

@@ -14,9 +14,9 @@ import os
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
-from minilm.model import MiniGPT, GPTConfig
-from minilm.optim import configure_optimizers
-from minilm.distributed import setup_distributed, cleanup_distributed, global_token_count
+from nanolm.model import MiniGPT, GPTConfig
+from nanolm.optim import configure_optimizers
+from nanolm.distributed import setup_distributed, cleanup_distributed, global_token_count
 
 def main():
     is_dist, rank, local_rank, world_size = setup_distributed()

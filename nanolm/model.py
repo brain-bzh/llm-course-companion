@@ -1,9 +1,9 @@
-"""Minimal Decoder-Only Transformer (MiniGPT).
+"""Minimal Decoder-Only Transformer (NanoLM).
 
 Covers:
 - Module 1: Transformer from first principles (embeddings, causal attention, MLP, Pre-LN).
-- Module 6: SDPA vs explicit attention toggle.
-- Module 11: Key-Value cache support for incremental autoregressive decoding.
+- Module 4: SDPA vs explicit attention toggle.
+- Module 9: Key-Value cache support for incremental autoregressive decoding.
 """
 
 from dataclasses import dataclass
@@ -22,8 +22,9 @@ class GPTConfig:
     n_head: int = 4          # Number of attention heads
     n_embd: int = 128        # Embedding dimension (d_model)
     dropout: float = 0.0     # Dropout probability
-    bias: bool = False       # Use bias in Linears and LayerNorms (modern LLMs prefer False)
-    use_sdpa: bool = True    # Use F.scaled_dot_product_attention (PyTorch Flash/efficient backend)
+    bias: bool = False       # Use bias in Linear and LayerNorm modules
+    layer_norm_epsilon: float = 1e-5
+    use_sdpa: bool = False   # Module 1 is explicit; Module 4 introduces PyTorch SDPA
 
 
 class CausalSelfAttention(nn.Module):
@@ -37,9 +38,10 @@ class CausalSelfAttention(nn.Module):
         self.n_embd = config.n_embd
         self.head_dim = config.n_embd // config.n_head
 
-        # Key, query, value projections for all heads in a single linear layer
-        self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd, bias=config.bias)
-        # Output projection
+        # Separate projections keep the first implementation easy to inspect.
+        self.w_q = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        self.w_k = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        self.w_v = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
         self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
 
         # Regularization
@@ -55,7 +57,12 @@ class CausalSelfAttention(nn.Module):
             persistent=False,
         )
 
-    def forward(
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply causal self-attention without a KV cache (Module 1 contract)."""
+        y, _ = self.forward_with_cache(x)
+        return y
+
+    def forward_with_cache(
         self,
         x: torch.Tensor,
         kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
@@ -63,16 +70,17 @@ class CausalSelfAttention(nn.Module):
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
-        # Calculate query, key, values for all heads in batch
-        qkv = self.c_attn(x)
-        q, k, v = qkv.chunk(3, dim=-1)
+        # Calculate query, key and value projections for all heads in batch.
+        q = self.w_q(x)
+        k = self.w_k(x)
+        v = self.w_v(x)
 
         # Reshape to (B, n_head, T, head_dim)
         q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
         k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
 
-        # KV-Cache handling (Module 11)
+        # KV-Cache handling (Module 9)
         if kv_cache is not None:
             past_k, past_v = kv_cache
             k = torch.cat([past_k, k], dim=2)
@@ -90,7 +98,7 @@ class CausalSelfAttention(nn.Module):
                 is_causal=True,
             )
         else:
-            # Explicit attention computation (Module 1 & incremental decode in Module 11)
+            # Explicit attention computation (Module 1 & incremental decode in Module 9)
             # QK^T / sqrt(d_k) -> (B, n_head, T, total_T)
             att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(self.head_dim))
             if kv_cache is None:
@@ -133,19 +141,35 @@ class TransformerBlock(nn.Module):
 
     def __init__(self, config: GPTConfig):
         super().__init__()
-        self.ln_1 = nn.LayerNorm(config.n_embd, elementwise_affine=config.bias)
+        self.ln_1 = nn.LayerNorm(
+            config.n_embd,
+            eps=config.layer_norm_epsilon,
+            bias=config.bias,
+        )
         self.attn = CausalSelfAttention(config)
-        self.ln_2 = nn.LayerNorm(config.n_embd, elementwise_affine=config.bias)
+        self.ln_2 = nn.LayerNorm(
+            config.n_embd,
+            eps=config.layer_norm_epsilon,
+            bias=config.bias,
+        )
         self.mlp = MLP(config)
 
-    def forward(
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply the two pre-norm residual branches (Module 1 contract)."""
+        x = x + self.attn(self.ln_1(x))
+        x = x + self.mlp(self.ln_2(x))
+        return x
+
+    def forward_with_cache(
         self,
         x: torch.Tensor,
         kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         use_cache: bool = False,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         # Pre-LN attention with residual
-        attn_out, new_cache = self.attn(self.ln_1(x), kv_cache=kv_cache, use_cache=use_cache)
+        attn_out, new_cache = self.attn.forward_with_cache(
+            self.ln_1(x), kv_cache=kv_cache, use_cache=use_cache
+        )
         x = x + attn_out
         # Pre-LN MLP with residual
         x = x + self.mlp(self.ln_2(x))
@@ -165,7 +189,11 @@ class MiniGPT(nn.Module):
                 wpe=nn.Embedding(config.block_size, config.n_embd),
                 drop=nn.Dropout(config.dropout),
                 h=nn.ModuleList([TransformerBlock(config) for _ in range(config.n_layer)]),
-                ln_f=nn.LayerNorm(config.n_embd, elementwise_affine=config.bias),
+                ln_f=nn.LayerNorm(
+                    config.n_embd,
+                    eps=config.layer_norm_epsilon,
+                    bias=config.bias,
+                ),
             )
         )
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
@@ -211,11 +239,17 @@ class MiniGPT(nn.Module):
         x = self.transformer.drop(tok_emb + pos_emb)
 
         new_caches = [] if use_cache else None
-        for i, block in enumerate(self.transformer.h):
-            layer_cache = kv_caches[i] if kv_caches is not None else None
-            x, updated_cache = block(x, kv_cache=layer_cache, use_cache=use_cache)
-            if use_cache:
-                new_caches.append(updated_cache)
+        if kv_caches is None and not use_cache:
+            for block in self.transformer.h:
+                x = block(x)
+        else:
+            for i, block in enumerate(self.transformer.h):
+                layer_cache = kv_caches[i] if kv_caches is not None else None
+                x, updated_cache = block.forward_with_cache(
+                    x, kv_cache=layer_cache, use_cache=use_cache
+                )
+                if use_cache:
+                    new_caches.append(updated_cache)
 
         x = self.transformer.ln_f(x)
 

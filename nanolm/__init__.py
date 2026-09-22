@@ -1,4 +1,4 @@
-"""MiniLM: Minimal, pedagogically transparent language modeling library."""
+"""NanoLM: Minimal, pedagogically transparent language modeling library."""
 
 from .model import MiniGPT, GPTConfig
 from .tokenizer import get_tokenizer

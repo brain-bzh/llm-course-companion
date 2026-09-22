@@ -1,18 +1,20 @@
 [project]
-name = "minilm-companion"
+name = "nanolm-companion"
 version = "0.1.0"
 description = "Companion codebase for Training and Scaling Language Models: From First Principles to Efficient Serving"
+authors = [{ name = "Jonathan Lys", email = "jonathan.lys@imt-atlantique.fr" }]
+
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-    "torch>=2.2.0",
-    "numpy>=1.26.0",
-    "tiktoken>=0.7.0",
-]
+# Intentional compatibility pin: FlashAttention 2.8.3.post1 publishes prebuilt
+# Linux CPython 3.12 / CUDA 13 wheels for the PyTorch 2.9 ABI.
+dependencies = ["torch==2.9.1", "numpy>=1.26.0", "tiktoken>=0.7.0"]
 
 [project.optional-dependencies]
-test = [
-    "pytest>=8.0.0",
+test = ["pytest>=8.0.0"]
+gpt2 = ["transformers==4.56.2"]
+flash-attention = [
+    "flash-attn==2.8.3; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
 ]
 
 [tool.pytest.ini_options]
@@ -24,7 +26,37 @@ pythonpath = ["."]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+packages = ["nanolm"]
+
 [dependency-groups]
-dev = [
-    "pytest>=8.0.0",
+dev = ["pytest>=8.0.0"]
+
+[tool.uv]
+override-dependencies = ["torch==2.9.1"]
+extra-build-dependencies.flash-attn = [
+    { requirement = "torch", match-runtime = true },
 ]
+extra-build-variables.flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE" }
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+
+[tool.ruff.lint]
+ignore = ["F401"] # voluntary for fill-in-the-blanks exercise style
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.pyrefly]
+python-interpreter-path = ".venv/bin/python"
+
+[tool.pyrefly.errors]
+untyped-import = false

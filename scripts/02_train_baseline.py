@@ -7,12 +7,12 @@ Demonstrates:
 
 import tempfile
 import torch
-from minilm.model import MiniGPT, GPTConfig
-from minilm.tokenizer import get_tokenizer
-from minilm.data import pack_documents, BinaryShardedDataset
-from minilm.optim import configure_optimizers
-from minilm.train import train_step, optimizer_step, evaluate_loss
-from minilm.generate import generate_uncached
+from nanolm.model import MiniGPT, GPTConfig
+from nanolm.tokenizer import get_tokenizer
+from nanolm.data import pack_documents, BinaryShardedDataset
+from nanolm.optim import configure_optimizers
+from nanolm.train import train_step, optimizer_step, evaluate_loss
+from nanolm.generate import generate_uncached
 
 def main():
     print("=== Module 2: Train Baseline Small GPT ===")

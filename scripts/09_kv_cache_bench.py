@@ -7,8 +7,8 @@ Demonstrates:
 """
 
 import torch
-from minilm.model import MiniGPT, GPTConfig
-from minilm.kv_cache import benchmark_generation_speed
+from nanolm.model import MiniGPT, GPTConfig
+from nanolm.kv_cache import benchmark_generation_speed
 
 def main():
     print("=== Module 10: KV-Cached Decoding Benchmark & Equivalence ===")

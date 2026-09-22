@@ -8,8 +8,8 @@ Demonstrates:
 
 import torch
 import torch.nn as nn
-from minilm.model import GPTConfig, MLP
-from minilm.tensor_parallel import ColumnParallelLinear, RowParallelLinear
+from nanolm.model import GPTConfig, MLP
+from nanolm.tensor_parallel import ColumnParallelLinear, RowParallelLinear
 
 def main():
     print("=== Module 8: Tensor Parallelism Toy Layer ===")

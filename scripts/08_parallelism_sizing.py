@@ -8,7 +8,7 @@ Demonstrates:
   PP -> DP -> FSDP -> EP -> TP
 """
 
-from minilm.parallelism_calc import ModelSpecs, ParallelismConfig, calculate_memory_and_scaling
+from nanolm.parallelism_calc import ModelSpecs, ParallelismConfig, calculate_memory_and_scaling
 
 
 def main():

@@ -1,4 +1,4 @@
-# MiniLM Companion Code
+# NanoLM Companion Code
 
 Companion codebase for [**Training and Scaling Language Models: From First Principles to Efficient Serving**](https://brain-bzh.github.io/llm-course/), designed by the [BRAIN team](https://www.imt-atlantique.fr/en/research-innovation/teams/brain) for [IMT Atlantique](https://www.imt-atlantique.fr/en).
 
@@ -14,6 +14,7 @@ This repository provides an ultra-lean, pedagogical implementation of an end-to-
   - `tiktoken` (Standard Byte-Pair Encoding tokenizer for GPT-style models)
   - *(`pytest` for test verification)*
 - **Self-Contained & Isolated**: This repository has its own `pyproject.toml` and can be cloned independently. Course maintainers also pin it as the `companion/` submodule of [`brain-bzh/llm-course`](https://github.com/brain-bzh/llm-course).
+- **Intentional PyTorch Pin**: `torch==2.9.1` is the newest supported line with a prebuilt [FlashAttention v2.8.3.post1](https://github.com/Dao-AILab/flash-attention/releases/tag/v2.8.3.post1) wheel for the accelerated labs. Those wheels specifically target Linux, CPython 3.12, CUDA 13, and the C++11 ABI. The base `uv sync` remains cross-platform and does not install FlashAttention; do not upgrade PyTorch without checking or rebuilding that optional accelerated path.
 - **Pedagogical Transparency**: Every mechanism (attention, causal masking, weight decay grouping, token packing, KV caching, tensor parallelism, serving queues, MoE routing) is written in readable, well-commented PyTorch.
 
 ---
@@ -34,10 +35,21 @@ uv sync
 uv run pytest tests/ -v
 ```
 
+On a compatible Linux GPU environment (CPython 3.12, CUDA 13), install the
+optional prebuilt FlashAttention path with:
+
+```bash
+uv sync --extra flash-attention
+```
+
+The extra uses the Torch version from the runtime environment while resolving
+FlashAttention's build dependency, matching the setup used in the REVE project.
+
 To run any module demo script:
 
 ```bash
-uv run python scripts/01_overfit.py
+uv run --extra gpt2 python scripts/01_gpt2_parity.py
+uv run python scripts/02_overfit.py
 uv run python scripts/09_kv_cache_bench.py
 ```
 
@@ -47,17 +59,17 @@ uv run python scripts/09_kv_cache_bench.py
 
 | Module | Topic | Conceptual Coverage | Companion Code Module | Runnable Script | Verification / Milestone |
 | :---: | :--- | :--- | :--- | :--- | :--- |
-| **1** | **Transformer from first principles** | Token & position embeddings, scaled dot-product attention, causal masking, Multi-Head Attention, Pre-LN residual connections, MLP, and LM head with tied weights. | [`minilm/model.py`](minilm/model.py) | [`scripts/01_inspect_and_mha.py`](scripts/01_inspect_and_mha.py)<br>[`scripts/01_overfit.py`](scripts/01_overfit.py) | **Exit criterion**: Tiny-batch overfit (`loss < 0.1`) & causal masking invariance. |
-| **2** | **Training-loop anatomy & baseline GPT** | Cross-entropy loss, AdamW decoupled weight decay (2D vs 1D parameters), cosine decay with linear warmup, gradient accumulation, norm clipping, and checkpoint save/recovery. | [`minilm/optim.py`](minilm/optim.py)<br>[`minilm/train.py`](minilm/train.py)<br>[`minilm/generate.py`](minilm/generate.py) | [`scripts/02_training_step.py`](scripts/02_training_step.py)<br>[`scripts/02_train_baseline.py`](scripts/02_train_baseline.py) | Optimizer parameter grouping test & checkpoint round-trip. |
-| **3** | **Pretraining data pipeline** | Heuristic quality filtering, BPE tokenizer training, `<\|endoftext\|>` document delimiters, contiguous token sequence packing, binary uint16 memmap shards, and streaming batch loader. | [`minilm/tokenizer.py`](minilm/tokenizer.py)<br>[`minilm/data.py`](minilm/data.py) | [`scripts/03_prepare_dataset.py`](scripts/03_prepare_dataset.py) | Round-trip tokenization & memory-mapped slice validation. |
-| **4** | **Single-GPU performance** | Static VRAM breakdown (weights, gradients, AdamW states), FLOPs counting per token, Model FLOPs Utilization (MFU), PyTorch SDPA, and mixed precision (`bfloat16`). | [`minilm/profile_utils.py`](minilm/profile_utils.py) | [`scripts/04_single_gpu_perf.py`](scripts/04_single_gpu_perf.py) | Measured tokens/second, MFU %, and memory footprint report. |
-| **5** | **Distributed data parallelism** | Multi-GPU scaling with `torchrun`, `torch.distributed`, `DistributedDataParallel` wrapper, gradient all-reduce, accumulation with `no_sync()`, and global token accounting. | [`minilm/distributed.py`](minilm/distributed.py) | [`scripts/05_train_ddp.py`](scripts/05_train_ddp.py) | Verified synchronization, sample coverage, and global token counts. |
-| **6** | **FSDP and ZeRO** | Parameter, gradient, and optimizer state sharding (ZeRO-1, ZeRO-2, ZeRO-3 / FSDP), PyTorch `FullyShardedDataParallel`, auto-wrap policies, and activation checkpointing. | [`minilm/fsdp_utils.py`](minilm/fsdp_utils.py) | [`scripts/06_fsdp_experiment.py`](scripts/06_fsdp_experiment.py) | Analytical and empirical comparison of peak memory vs DDP. |
-| **7** | **Tensor parallelism** | Megatron-LM intra-layer model partitioning: ColumnParallelLinear (partition output dimension), RowParallelLinear (partition input dimension with all-reduce), and intermediate collective elimination. | [`minilm/tensor_parallel.py`](minilm/tensor_parallel.py) | [`scripts/07_tensor_parallel.py`](scripts/07_tensor_parallel.py) | Mathematical equivalence check between TP MLP and standard MLP. |
-| **8** | **Context, pipeline & expert parallelism** | Context-length memory pressure, Ring Attention / Context Parallelism (CP), Pipeline Parallelism (PP) 1F1B schedule bubble overhead, and multidimensional cluster sizing. | [`minilm/parallelism_calc.py`](minilm/parallelism_calc.py) | [`scripts/08_parallelism_sizing.py`](scripts/08_parallelism_sizing.py) | Sizing report with VRAM, communication, and bubble estimates across cluster topologies. |
-| **9** | **KV-cached decoding** | Autoregressive decoding bottlenecks ($O(T^2)$ compute vs $O(T)$), prefill vs decode stages, Key-Value cache tensor management, and MHA vs GQA cache footprint. | [`minilm/kv_cache.py`](minilm/kv_cache.py)<br>[`minilm/model.py`](minilm/model.py) | [`scripts/09_kv_cache_bench.py`](scripts/09_kv_cache_bench.py) | Strict token & logit equivalence test + latency speedup benchmark. |
-| **10** | **Serving systems** | Serving constraints, continuous (iteration-level) batching scheduler, paged KV-cache memory allocation, Time To First Token (TTFT), Inter-Token Latency (ITL), and throughput. | [`minilm/serving_sim.py`](minilm/serving_sim.py) | [`scripts/10_serving_benchmark.py`](scripts/10_serving_benchmark.py) | Discrete-event serving simulation report with TTFT/ITL histograms. |
-| **11** | **Frontier architectures** | Speculative decoding dynamics, DeepSeek MLA cache savings, linear attention, and Sparse Mixture of Experts (MoE) with top-k routing and load-balancing loss. | [`minilm/moe.py`](minilm/moe.py) | [`scripts/11_frontier_exploration.py`](scripts/11_frontier_exploration.py) | Speculative speedup modeling, MLA compression calculation, and MoE routing loss validation. |
+| **1** | [**Transformer from first principles**](https://brain-bzh.github.io/llm-course/companion/01-transformer/) | Reimplement explicit causal MHA, a Pre-LN Transformer block, embeddings, repeated blocks, and an LM head with tied weights. | [`starter/01_transformer.py`](starter/01_transformer.py)<br>[`nanolm/model.py`](nanolm/model.py)<br>[`nanolm/gpt2.py`](nanolm/gpt2.py) | [`scripts/01_gpt2_parity.py`](scripts/01_gpt2_parity.py) | **Exit criterion**: The student-built model reproduces official GPT-2 logits and a verified next-token log-probability. |
+| **2** | **Training-loop anatomy & small-model overfit** | Shifted targets, AdamW parameter grouping, warmup/cosine decay, accumulation, norm clipping, and checkpoint recovery. | [`starter/02_training/`](starter/02_training/)<br>[`nanolm/optim.py`](nanolm/optim.py)<br>[`nanolm/train.py`](nanolm/train.py) | [`scripts/02_overfit.py`](scripts/02_overfit.py)<br>[`scripts/02_train_baseline.py`](scripts/02_train_baseline.py) | **Exit criterion**: A small NanoLM overfits one batch (`loss < 0.1`) and reloads with identical logits. |
+| **3** | **Pretraining data pipeline** | Heuristic quality filtering, BPE tokenizer training, `<\|endoftext\|>` document delimiters, contiguous token sequence packing, binary uint16 memmap shards, and streaming batch loader. | [`nanolm/tokenizer.py`](nanolm/tokenizer.py)<br>[`nanolm/data.py`](nanolm/data.py) | [`scripts/03_prepare_dataset.py`](scripts/03_prepare_dataset.py) | Round-trip tokenization & memory-mapped slice validation. |
+| **4** | **Single-GPU performance** | Static VRAM breakdown (weights, gradients, AdamW states), FLOPs counting per token, Model FLOPs Utilization (MFU), PyTorch SDPA, and mixed precision (`bfloat16`). | [`nanolm/profile_utils.py`](nanolm/profile_utils.py) | [`scripts/04_single_gpu_perf.py`](scripts/04_single_gpu_perf.py) | Measured tokens/second, MFU %, and memory footprint report. |
+| **5** | **Distributed data parallelism** | Multi-GPU scaling with `torchrun`, `torch.distributed`, `DistributedDataParallel` wrapper, gradient all-reduce, accumulation with `no_sync()`, and global token accounting. | [`nanolm/distributed.py`](nanolm/distributed.py) | [`scripts/05_train_ddp.py`](scripts/05_train_ddp.py) | Verified synchronization, sample coverage, and global token counts. |
+| **6** | **FSDP and ZeRO** | Parameter, gradient, and optimizer state sharding (ZeRO-1, ZeRO-2, ZeRO-3 / FSDP), PyTorch `FullyShardedDataParallel`, auto-wrap policies, and activation checkpointing. | [`nanolm/fsdp_utils.py`](nanolm/fsdp_utils.py) | [`scripts/06_fsdp_experiment.py`](scripts/06_fsdp_experiment.py) | Analytical and empirical comparison of peak memory vs DDP. |
+| **7** | **Tensor parallelism** | Megatron-LM intra-layer model partitioning: ColumnParallelLinear (partition output dimension), RowParallelLinear (partition input dimension with all-reduce), and intermediate collective elimination. | [`nanolm/tensor_parallel.py`](nanolm/tensor_parallel.py) | [`scripts/07_tensor_parallel.py`](scripts/07_tensor_parallel.py) | Mathematical equivalence check between TP MLP and standard MLP. |
+| **8** | **Context, pipeline & expert parallelism** | Context-length memory pressure, Ring Attention / Context Parallelism (CP), Pipeline Parallelism (PP) 1F1B schedule bubble overhead, and multidimensional cluster sizing. | [`nanolm/parallelism_calc.py`](nanolm/parallelism_calc.py) | [`scripts/08_parallelism_sizing.py`](scripts/08_parallelism_sizing.py) | Sizing report with VRAM, communication, and bubble estimates across cluster topologies. |
+| **9** | **KV-cached decoding** | Autoregressive decoding bottlenecks ($O(T^2)$ compute vs $O(T)$), prefill vs decode stages, Key-Value cache tensor management, and MHA vs GQA cache footprint. | [`nanolm/kv_cache.py`](nanolm/kv_cache.py)<br>[`nanolm/model.py`](nanolm/model.py) | [`scripts/09_kv_cache_bench.py`](scripts/09_kv_cache_bench.py) | Strict token & logit equivalence test + latency speedup benchmark. |
+| **10** | **Serving systems** | Serving constraints, continuous (iteration-level) batching scheduler, paged KV-cache memory allocation, Time To First Token (TTFT), Inter-Token Latency (ITL), and throughput. | [`nanolm/serving_sim.py`](nanolm/serving_sim.py) | [`scripts/10_serving_benchmark.py`](scripts/10_serving_benchmark.py) | Discrete-event serving simulation report with TTFT/ITL histograms. |
+| **11** | **Frontier architectures** | Speculative decoding dynamics, DeepSeek MLA cache savings, linear attention, and Sparse Mixture of Experts (MoE) with top-k routing and load-balancing loss. | [`nanolm/moe.py`](nanolm/moe.py) | [`scripts/11_frontier_exploration.py`](scripts/11_frontier_exploration.py) | Speculative speedup modeling, MLA compression calculation, and MoE routing loss validation. |
 
 ---
 
@@ -68,9 +80,13 @@ llm-course-companion/
 ├── pyproject.toml              # Environment definition (torch, numpy, tiktoken, pytest)
 ├── README.md                   # Overview & module mapping guide
 ├── uv.lock                     # Locked dependencies for reproducible environments
-├── minilm/                     # Core library
+├── starter/                    # Incomplete student starting points
+│   ├── 01_transformer.py       # Module 1: MHA and Transformer TODO scaffold
+│   └── 02_training/            # Module 2: optimizer and loop TODO scaffolds
+├── nanolm/                     # Core library
 │   ├── __init__.py             # Public exports (MiniGPT, GPTConfig, get_tokenizer)
 │   ├── model.py                # Decoder-only GPT with causal attention & KV hooks
+│   ├── gpt2.py                 # Provided Hugging Face GPT-2 weight converter
 │   ├── optim.py                # AdamW weight decay grouping & cosine schedule
 │   ├── tokenizer.py            # Tiktoken BPE wrapper with fallback
 │   ├── data.py                 # Document packing, binary memmaps, batch loading
@@ -85,8 +101,8 @@ llm-course-companion/
 │   ├── serving_sim.py          # Continuous batching & paged memory simulation
 │   └── moe.py                  # Sparse MoE layer with top-k router & aux loss
 ├── scripts/                    # Standalone executable module demonstrations
-│   ├── 01_inspect_and_mha.py   # Module 1: Weight inspection & MHA layer
-│   ├── 01_overfit.py           # Module 1: Tiny-batch overfit test
+│   ├── 01_gpt2_parity.py       # Module 1: official GPT-2 logit parity
+│   ├── 02_overfit.py           # Module 2: one-batch overfit & checkpoint round-trip
 │   ├── 02_training_step.py     # Module 2: Optimizer step & checkpoint test
 │   ├── 02_train_baseline.py    # Module 2: Baseline training & text sampling
 │   ├── 03_prepare_dataset.py   # Module 3: BPE packing to binary memmap
@@ -118,8 +134,8 @@ uv run pytest tests/ -v
 ```
 
 Expected test outcomes:
-- `test_module_01_model.py`: Verifies output shape, causal masking invariance (future tokens cannot affect past logits), and tiny-batch overfit.
-- `test_module_02_optim.py`: Verifies weight decay applies only to $\ge 2\text{D}$ tensors, and verifies warmup/cosine decay schedules.
+- `test_module_01_model.py`: Progressively verifies explicit MHA, causality, the Transformer block, full-model shape, weight tying, and the GPT-2 mapping contract.
+- `test_module_02_optim.py`: Verifies AdamW grouping, the learning-rate schedule, one-batch overfitting, and exact checkpoint recovery.
 - `test_module_03_data.py`: Verifies BPE encoding/decoding and binary memmap batch alignment.
 - `test_module_07_tp.py`: Verifies numerical equivalence between partitioned Column/Row linear layers and standard Linear layers.
 - `test_module_09_kv_cache.py`: Verifies that KV-cached incremental generation produces tokens and logits identical to full uncached generation.

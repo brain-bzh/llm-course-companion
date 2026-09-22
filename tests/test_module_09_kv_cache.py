@@ -1,8 +1,8 @@
 """Tests for Module 10 — KV-cached decoding."""
 
 import torch
-from minilm.model import MiniGPT, GPTConfig
-from minilm.generate import generate_cached, generate_uncached
+from nanolm.model import MiniGPT, GPTConfig
+from nanolm.generate import generate_cached, generate_uncached
 
 
 def test_kv_cached_vs_uncached_exact_match():

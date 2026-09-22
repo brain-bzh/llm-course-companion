@@ -1,8 +1,8 @@
 """Tests for Module 3 — BPE and the data pipeline."""
 
 import tempfile
-from minilm.tokenizer import BPETokenizer, get_tokenizer
-from minilm.data import pack_documents, BinaryShardedDataset
+from nanolm.tokenizer import BPETokenizer, get_tokenizer
+from nanolm.data import pack_documents, BinaryShardedDataset
 
 
 def test_bpe_tokenizer_train_and_round_trip():

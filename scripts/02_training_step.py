@@ -9,9 +9,9 @@ Demonstrates:
 
 import tempfile
 import torch
-from minilm.model import MiniGPT, GPTConfig
-from minilm.optim import configure_optimizers, get_lr_cosine_schedule
-from minilm.train import train_step, optimizer_step, save_checkpoint, load_checkpoint
+from nanolm.model import MiniGPT, GPTConfig
+from nanolm.optim import configure_optimizers, get_lr_cosine_schedule
+from nanolm.train import train_step, optimizer_step, save_checkpoint, load_checkpoint
 
 def main():
     print("=== Module 2: Training Loop Anatomy ===")
