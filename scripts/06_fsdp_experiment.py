@@ -1,4 +1,4 @@
-"""Module 7 — FSDP and ZeRO.
+"""Module 6 — FSDP and ZeRO.
 
 Demonstrates:
 - Memory scaling comparison: DDP (replicated) vs ZeRO-1 vs ZeRO-2 vs ZeRO-3 (FSDP).
@@ -10,7 +10,7 @@ from nanolm.profile_utils import memory_breakdown
 from nanolm.optim import configure_optimizers
 
 def main():
-    print("=== Module 7: FSDP & ZeRO Sharding Analysis ===")
+    print("=== Module 6: FSDP & ZeRO Sharding Analysis ===")
 
     # Model representing a medium 350M scale setup
     config = GPTConfig(

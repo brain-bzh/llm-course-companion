@@ -1,7 +1,7 @@
-"""Module 12 — Frontier architectures and efficient generation.
+"""Module 11 — Frontier architectures and efficient generation.
 
 Demonstrates:
-- Speculative decoding speedup and rejection sampling dynamics.
+- Speculative decoding: expected accepted tokens vs. wall-clock speedup.
 - DeepSeek Multi-Head Latent Attention (MLA) KV-cache compression vs MHA and GQA.
 - Constant-memory linear recurrence (GDN / Mamba) vs standard quadratic KV-cache.
 - Sparse Mixture of Experts (MoE) parameter expansion vs active compute.
@@ -13,18 +13,31 @@ from nanolm.moe import SparseMoELayer
 
 
 def speculative_decoding_analysis():
-    print("\n--- 1. Speculative Decoding Acceleration ---")
-    # Expected speedup: E[tokens/step] = (1 - alpha^(K+1)) / (1 - alpha)
+    print("\n--- 1. Speculative Decoding: Expected Tokens vs Wall-Clock Speedup ---")
+    # Expected emitted tokens: E[tokens/step] = (1 - alpha^(K+1)) / (1 - alpha)
     alphas = [0.6, 0.75, 0.90]
     draft_lengths = [1, 2, 3, 5, 8]
 
+    print("Expected Emitted Tokens per Step (E[N]):")
     print(f"{'Acceptance Rate (α)':<22} | " + " | ".join(f"K={k:<2}" for k in draft_lengths))
     print("-" * 55)
     for alpha in alphas:
         row = []
         for k in draft_lengths:
             expected_tokens = (1 - alpha ** (k + 1)) / (1 - alpha)
-            row.append(f"{expected_tokens:>4.2f}x")
+            row.append(f"{expected_tokens:>5.2f}")
+        print(f"α = {alpha:<18.2f} | " + " | ".join(row))
+
+    print("\nIllustrative Wall-Clock Speedup S = E[N] / (K * (t_draft/t_base) + t_verify/t_base):")
+    print("Assuming t_draft = 0.1 * t_base and t_verify = 1.0 * t_base:")
+    print(f"{'Acceptance Rate (α)':<22} | " + " | ".join(f"K={k:<2}" for k in draft_lengths))
+    print("-" * 55)
+    for alpha in alphas:
+        row = []
+        for k in draft_lengths:
+            expected_tokens = (1 - alpha ** (k + 1)) / (1 - alpha)
+            wall_speedup = expected_tokens / (k * 0.1 + 1.0)
+            row.append(f"{wall_speedup:>4.2f}x")
         print(f"α = {alpha:<18.2f} | " + " | ".join(row))
 
 
@@ -86,12 +99,12 @@ def moe_exploration():
 
 
 def main():
-    print("=== Module 12: Frontier Architectures & Efficient Generation ===")
+    print("=== Module 11: Frontier Architectures & Efficient Generation ===")
     speculative_decoding_analysis()
     mla_cache_compression_analysis()
     linear_attention_recurrence()
     moe_exploration()
-    print("\nSUCCESS: Module 12 frontier exploration verified!")
+    print("\nSUCCESS: Module 11 frontier exploration verified!")
 
 
 if __name__ == "__main__":

@@ -1,68 +1,104 @@
-"""Module 5 — Single-GPU performance.
+"""Module 4: warmed-up fixed-shape training ablations with declared hardware.
 
-Demonstrates:
-- Memory breakdown (parameters, gradients, optimizer states).
-- FLOPs calculation per token.
-- MFU (Model FLOPs Utilization) estimation.
-- Comparing PyTorch SDPA vs manual attention.
+CPU default validates mechanics; request CUDA explicitly for a GPU experiment.
 """
-
+import argparse
+from contextlib import nullcontext
+import json
+from pathlib import Path
+import statistics
 import time
 import torch
 from nanolm.model import MiniGPT, GPTConfig
 from nanolm.optim import configure_optimizers
-from nanolm.profile_utils import compute_flops_per_token, estimate_mfu, memory_breakdown
+from nanolm.profile_utils import compute_flops_per_token, estimate_mfu
+
 
 def main():
-    print("=== Module 5: Single-GPU Performance & Profiling ===")
-    config = GPTConfig(
-        vocab_size=50257,
-        block_size=512,
-        n_layer=6,
-        n_head=6,
-        n_embd=384,
-    )
-    model = MiniGPT(config)
-    optimizer = configure_optimizers(model)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--device', choices=['cpu', 'cuda'], default='cpu')
+    parser.add_argument('--modes', nargs='+', choices=['manual', 'sdpa', 'bf16', 'compile'], default=['manual', 'sdpa'])
+    parser.add_argument('--steps', type=int, default=10)
+    parser.add_argument('--warmup', type=int, default=3)
+    parser.add_argument('--repeats', type=int, default=3)
+    parser.add_argument('--batch-size', type=int, default=4)
+    parser.add_argument('--block-size', type=int, default=64)
+    parser.add_argument('--peak-tflops', type=float, help='Dense peak at measured precision; do not use sparse peak')
+    parser.add_argument('--trace-dir', help='Optional Chrome traces; collected separately from timing')
+    args = parser.parse_args()
+    if min(args.steps, args.warmup, args.repeats, args.batch_size, args.block_size) < 1:
+        parser.error('Workload and timing counts must be positive')
+    if args.peak_tflops is not None and (args.peak_tflops <= 0 or args.device != 'cuda'):
+        parser.error('MFU needs a positive declared CUDA device peak')
+    if args.peak_tflops and len(args.modes) > 1 and 'bf16' in args.modes:
+        parser.error('Use a separate BF16 invocation: the hardware peak depends on precision')
+    if args.device == 'cuda' and not torch.cuda.is_available():
+        parser.error('CUDA is unavailable; CPU results cannot substitute for GPU measurements')
+    if 'bf16' in args.modes and args.device == 'cuda' and not torch.cuda.is_bf16_supported():
+        parser.error('This CUDA device does not support BF16')
+    torch.set_num_threads(1)
+    device = torch.device(args.device)
 
-    # 1. Theoretical Memory Accounting
-    mem = memory_breakdown(model, optimizer)
-    print("Static Memory Breakdown:")
-    print(f"  Parameters:       {mem['parameters_mb']:.2f} MB")
-    print(f"  Gradients:        {mem['gradients_mb']:.2f} MB")
-    print(f"  AdamW States:     {mem['optimizer_states_mb']:.2f} MB")
-    print(f"  Total Static VRAM:{mem['total_static_mb']:.2f} MB")
+    def sync():
+        if device.type == 'cuda':
+            torch.cuda.synchronize()
 
-    # 2. FLOPs per token
-    flops_per_tok = compute_flops_per_token(config)
-    print(f"\nTheoretical FLOPs per token (Fwd+Bwd): {flops_per_tok:,} FLOPs")
+    results = []
+    for mode in args.modes:
+        torch.manual_seed(42)
+        cfg = GPTConfig(vocab_size=512, block_size=args.block_size, n_layer=2, n_head=4,
+                        n_embd=128, use_sdpa=mode != 'manual')
+        raw = MiniGPT(cfg).to(device)
+        model = torch.compile(raw) if mode == 'compile' else raw
+        optimizer = configure_optimizers(raw, device_type=device.type)
+        tokens = torch.randint(0, cfg.vocab_size, (args.batch_size, cfg.block_size+1), device=device)
+        x, y = tokens[:, :-1].contiguous(), tokens[:, 1:].contiguous()
+        dtype = torch.bfloat16 if mode == 'bf16' else torch.float32
 
-    # 3. Micro-benchmark SDPA throughput
-    x = torch.randint(0, config.vocab_size, (4, 256))
-    y = torch.randint(0, config.vocab_size, (4, 256))
+        def update():
+            optimizer.zero_grad(set_to_none=True)
+            context = torch.autocast(device.type, dtype=dtype) if mode == 'bf16' else nullcontext()
+            with context:
+                _, loss, _ = model(x, targets=y)
+            loss.backward()
+            optimizer.step()
 
-    # Warmup
-    for _ in range(3):
-        logits, loss, _ = model(x, targets=y)
-        loss.backward()
-        optimizer.zero_grad()
+        for _ in range(args.warmup):
+            update()
+        sync()
+        if device.type == 'cuda':
+            torch.cuda.reset_peak_memory_stats()
+        samples = []
+        for _ in range(args.repeats):
+            sync()
+            begin = time.perf_counter()
+            for _ in range(args.steps):
+                update()
+            sync()
+            samples.append(args.steps*args.batch_size*cfg.block_size/(time.perf_counter()-begin))
+        median = statistics.median(samples)
+        results.append({'mode': mode, 'tokens_per_sec_samples': samples, 'median_tokens_per_sec': median,
+                        'peak_allocated_bytes': torch.cuda.max_memory_allocated() if device.type == 'cuda' else None,
+                        'peak_reserved_bytes': torch.cuda.max_memory_reserved() if device.type == 'cuda' else None,
+                        'approx_mfu_percent': estimate_mfu(median, compute_flops_per_token(cfg), args.peak_tflops)
+                        if args.peak_tflops else None})
+        if args.trace_dir:
+            trace_dir = Path(args.trace_dir)
+            trace_dir.mkdir(parents=True, exist_ok=True)
+            activities = [torch.profiler.ProfilerActivity.CPU]
+            if device.type == 'cuda':
+                activities.append(torch.profiler.ProfilerActivity.CUDA)
+            with torch.profiler.profile(activities=activities, record_shapes=True, profile_memory=True) as trace:
+                update()
+                sync()
+            trace.export_chrome_trace(str(trace_dir / f'{mode}.json'))
+        del model, raw, optimizer
+        if device.type == 'cuda':
+            torch.cuda.empty_cache()
+    print(json.dumps({'workload': vars(args), 'torch_version': torch.__version__,
+                      'device': torch.cuda.get_device_name() if device.type == 'cuda' else 'CPU (not GPU MFU)',
+                      'results': results}, indent=2))
 
-    steps = 10
-    t0 = time.perf_counter()
-    for _ in range(steps):
-        logits, loss, _ = model(x, targets=y)
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-    elapsed = time.perf_counter() - t0
 
-    tokens_processed = steps * 4 * 256
-    tok_per_sec = tokens_processed / elapsed
-    print(f"\nMeasured Throughput: {tok_per_sec:.2f} tokens/s (over {steps} steps on CPU/MPS/CUDA)")
-
-    # Example MFU estimation on hypothetical 100 TFLOPS accelerator
-    mfu = estimate_mfu(tok_per_sec, flops_per_tok, gpu_peak_tflops=100.0)
-    print(f"Estimated MFU (against 100 TFLOPS device): {mfu:.3f}%")
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

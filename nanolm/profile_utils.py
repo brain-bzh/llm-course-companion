@@ -1,7 +1,7 @@
 """Profiling utilities: FLOPs counter, MFU estimation, and memory breakdown.
 
 Covers:
-- Module 6: Single-GPU performance (FLOPs, throughput, MFU, memory accounting).
+- Module 4: Single-GPU performance (FLOPs, throughput, MFU, memory accounting).
 """
 
 from typing import Dict, Any
@@ -18,12 +18,10 @@ def compute_flops_per_token(config: GPTConfig) -> int:
     - Attention matrix products (QK^T and Attn*V): 4 * n_layer * n_head * head_dim * seq_len
     - Backward pass roughly doubles forward pass (total ~ 3 * 2 * N = 6 * N + attention overhead).
     """
-    N = (
-        12 * config.n_layer * (config.n_embd ** 2)
-        + 13 * config.n_layer * config.n_embd
-    )
-    # Forward + backward FLOPs per token
-    flops_per_token = 6 * N + 12 * config.n_layer * config.n_head * (config.n_embd // config.n_head) * config.block_size
+    # Matrix multiplies only: block projections + dense vocabulary head.
+    # Embedding lookup is not a V*d matmul, but the tied output head is.
+    matrix_params = 12 * config.n_layer * config.n_embd**2 + config.vocab_size * config.n_embd
+    flops_per_token = 6 * matrix_params + 12 * config.n_layer * config.n_embd * config.block_size
     return flops_per_token
 
 
@@ -37,6 +35,8 @@ def estimate_mfu(
     MFU = (measured_flops_per_second) / (gpu_peak_flops).
     gpu_peak_tflops is the theoretical peak of the GPU in TFLOP/s (e.g., A100 BF16 is ~312 TFLOPS).
     """
+    if gpu_peak_tflops <= 0:
+        raise ValueError("Hardware peak must be positive")
     measured_tflops = (tokens_per_sec * flops_per_token) / 1e12
     return (measured_tflops / gpu_peak_tflops) * 100.0
 

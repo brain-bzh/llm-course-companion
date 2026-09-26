@@ -1,41 +1,27 @@
-"""Module 10 — KV-cached decoding.
-
-Demonstrates:
-- Incremental decoding with Key-Value Cache.
-- Exact numerical and token equivalence between cached and uncached generation.
-- Latency and throughput benchmark demonstrating the $O(T)$ speedup over $O(T^2)$ recomputation.
-"""
-
+"""Module 9: fixed-workload KV latency; no guaranteed speedup."""
+import argparse
+import json
 import torch
 from nanolm.model import MiniGPT, GPTConfig
 from nanolm.kv_cache import benchmark_generation_speed
 
+
 def main():
-    print("=== Module 10: KV-Cached Decoding Benchmark & Equivalence ===")
-    config = GPTConfig(
-        vocab_size=1000,
-        block_size=128,
-        n_layer=4,
-        n_head=4,
-        n_embd=128,
-        dropout=0.0,
-    )
-    model = MiniGPT(config)
-    model.eval()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--device', default='cpu', choices=['cpu', 'cuda', 'mps'])
+    parser.add_argument('--prompt-tokens', type=int, default=16)
+    parser.add_argument('--new-tokens', type=int, default=16)
+    parser.add_argument('--batch-size', type=int, default=1)
+    parser.add_argument('--repeats', type=int, default=5)
+    args = parser.parse_args()
+    torch.set_num_threads(1)
+    torch.manual_seed(42)
+    cfg = GPTConfig(vocab_size=256, block_size=args.prompt_tokens+args.new_tokens,
+                    n_layer=2, n_head=2, n_embd=64)
+    model = MiniGPT(cfg).to(args.device)
+    prompt = torch.randint(0, cfg.vocab_size, (args.batch_size, args.prompt_tokens), device=args.device)
+    print(json.dumps(benchmark_generation_speed(model, prompt, args.new_tokens, args.repeats), indent=2))
 
-    # Prompt: 10 tokens, generate 25 new tokens
-    prompt = torch.randint(0, config.vocab_size, (1, 10))
 
-    print("Running speed and equivalence benchmark (Prompt length: 10, New tokens: 25)...")
-    res = benchmark_generation_speed(model, prompt, new_tokens=25)
-
-    print(f"\nUncached Generation Time: {res['uncached_time_sec']:.4f} s ({res['uncached_tokens_per_sec']} tok/s)")
-    print(f"Cached Generation Time:   {res['cached_time_sec']:.4f} s ({res['cached_tokens_per_sec']} tok/s)")
-    print(f"Speedup Factor:           {res['speedup_factor']}x")
-    print(f"Exact Token Match:        {res['exact_token_match']}")
-
-    assert res["exact_token_match"], "Cached and uncached generations diverged!"
-    print("SUCCESS: Module 10 deliverable verified (KV-cache is mathematically identical and faster).")
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

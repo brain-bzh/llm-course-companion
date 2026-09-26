@@ -1,61 +1,44 @@
-"""Module 2 — Training-loop anatomy and baseline GPT.
-
-Demonstrates:
-- Baseline training run with healthy validation loss tracking.
-- Autoregressive text sampling as qualitative diagnostic.
-"""
-
-import tempfile
+"""Module 2 Part B: disjoint documents, fixed token budget, recoverable baseline."""
+import argparse
+from dataclasses import fields
+import json
+from pathlib import Path
 import torch
-from nanolm.model import MiniGPT, GPTConfig
-from nanolm.tokenizer import get_tokenizer
-from nanolm.data import pack_documents, BinaryShardedDataset
-from nanolm.optim import configure_optimizers
-from nanolm.train import train_step, optimizer_step, evaluate_loss
-from nanolm.generate import generate_uncached
+from nanolm.baseline import BaselineConfig, run_baseline
+
+
+def read_docs(path):
+    return [json.loads(line)['text'] for line in Path(path).read_text().splitlines() if line.strip()]
+
 
 def main():
-    print("=== Module 2: Train Baseline Small GPT ===")
-    tokenizer = get_tokenizer()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--train-jsonl')
+    parser.add_argument('--val-jsonl')
+    parser.add_argument('--output', default='runs/baseline')
+    parser.add_argument('--resume')
+    parser.add_argument('--stop-after', type=int)
+    parser.add_argument('--threads', type=int, default=1)
+    for field in fields(BaselineConfig):
+        parser.add_argument('--' + field.name.replace('_', '-'), type=field.type, default=field.default)
+    args = parser.parse_args()
+    if bool(args.train_jsonl) != bool(args.val_jsonl):
+        parser.error('Supply both --train-jsonl and --val-jsonl, or neither for the smoke fixture')
+    if args.threads < 1:
+        parser.error('--threads must be positive')
+    torch.set_num_threads(args.threads)
+    if args.train_jsonl:
+        train, val = read_docs(args.train_jsonl), read_docs(args.val_jsonl)
+    else:
+        print('Synthetic smoke fixture: validates the workflow, not useful language quality.')
+        train = [f'The {item} is in the room. We read and write a short sentence about it. '
+                 for item in ('book', 'table', 'chair', 'lamp', 'pencil', 'notebook')]
+        val = [f'The {item} is near the window. We describe it in another sentence. '
+               for item in ('plant', 'clock', 'painting')]
+    cfg = BaselineConfig(**{f.name: getattr(args, f.name) for f in fields(BaselineConfig)})
+    result = run_baseline(train, val, args.output, cfg, resume=args.resume, stop_after=args.stop_after)
+    print(json.dumps(result, indent=2))
 
-    # Small synthetic corpus of repetitive rhythmic text for fast learning
-    corpus = [
-        "one two three four five six seven eight nine ten. " * 20,
-        "alpha beta gamma delta epsilon zeta eta theta. " * 20,
-    ] * 5
 
-    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as tmp:
-        bin_path = tmp.name
-
-    pack_documents(corpus, tokenizer, bin_path, tokenizer.eot_token_id)
-    dataset = BinaryShardedDataset(bin_path)
-
-    config = GPTConfig(
-        vocab_size=getattr(tokenizer, "n_words", 50257),
-        block_size=32,
-        n_layer=2,
-        n_head=2,
-        n_embd=64,
-    )
-    model = MiniGPT(config)
-    optimizer = configure_optimizers(model, learning_rate=2e-3)
-
-    print(f"Training Small GPT ({model.get_num_params():,} params) for 60 steps...")
-    for step in range(60):
-        x, y = dataset.get_batch(batch_size=4, block_size=config.block_size)
-        loss = train_step(model, optimizer, x, y)
-        optimizer_step(model, optimizer)
-
-        if (step + 1) % 20 == 0:
-            val_loss = evaluate_loss(model, dataset, eval_iters=5, batch_size=4, block_size=config.block_size)
-            print(f"  Step {step+1:02d} | Train Loss: {loss:.4f} | Val Loss: {val_loss:.4f}")
-
-    print("\nQualitative diagnostic: Sampling from trained baseline:")
-    prompt = "one two"
-    prompt_ids = torch.tensor([tokenizer.encode(prompt)], dtype=torch.long)
-    sampled = generate_uncached(model, prompt_ids, max_new_tokens=15, temperature=0.7)
-    decoded = tokenizer.decode(sampled[0].tolist())
-    print(f"Prompt: {prompt!r} -> Generated: {decoded!r}")
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

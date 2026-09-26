@@ -53,12 +53,18 @@ def generate_cached(
     top_k: Optional[int] = None,
 ) -> torch.Tensor:
     """Generate tokens using Key-Value caching to avoid redundant attention computation."""
+    if max_new_tokens < 0 or idx.size(1) == 0:
+        raise ValueError("Use a nonempty prompt and a nonnegative generation length")
+    if max_new_tokens == 0:
+        return idx
+    if idx.size(1) + max_new_tokens - 1 > model.config.block_size:
+        raise ValueError("Cached generation exceeds the learned-position context window")
     model.eval()
     # 1. Prefill stage: process prompt
     logits, _, kv_caches = model(idx, use_cache=True)
     curr_idx = idx
 
-    for _ in range(max_new_tokens):
+    for step in range(max_new_tokens):
         # Pluck logits at final step
         step_logits = logits[:, -1, :] / (temperature if temperature > 0 else 1.0)
 
@@ -75,6 +81,7 @@ def generate_cached(
         curr_idx = torch.cat((curr_idx, idx_next), dim=1)
 
         # 2. Decode stage: feed only the single new token
-        logits, _, kv_caches = model(idx_next, kv_caches=kv_caches, use_cache=True)
+        if step + 1 < max_new_tokens:
+            logits, _, kv_caches = model(idx_next, kv_caches=kv_caches, use_cache=True)
 
     return curr_idx

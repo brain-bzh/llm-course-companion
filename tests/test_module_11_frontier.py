@@ -1,4 +1,4 @@
-"""Tests for Module 12 — Frontier architectures."""
+"""Tests for Module 11 — Frontier architectures."""
 
 import torch
 from nanolm.model import GPTConfig

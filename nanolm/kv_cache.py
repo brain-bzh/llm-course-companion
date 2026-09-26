@@ -61,31 +61,72 @@ def compute_kv_cache_size_bytes(
     return 2 * n_layers * batch_size * n_kv_heads * seq_len * head_dim * dtype_bytes
 
 
-def benchmark_generation_speed(
-    model: nn.Module,
-    prompt_tokens: torch.Tensor,
-    new_tokens: int = 30,
-) -> dict:
-    """Measure speed and memory of uncached vs KV-cached generation."""
-    # 1. Uncached run
-    t0 = time.perf_counter()
-    out_uncached = generate_uncached(model, prompt_tokens.clone(), max_new_tokens=new_tokens, temperature=0.0)
-    t_uncached = time.perf_counter() - t0
+@torch.no_grad()
+def benchmark_generation_speed(model, prompt_tokens, new_tokens=30, repeats=5):
+    """Synchronised, warmed-up latency measurements on a fixed greedy workload.
 
-    # 2. Cached run
-    t1 = time.perf_counter()
-    out_cached = generate_cached(model, prompt_tokens.clone(), max_new_tokens=new_tokens, temperature=0.0)
-    t_cached = time.perf_counter() - t1
+    TTFT here is model prefill + token selection, excluding queue/network/tokenizer.
+    Decode intervals include Python/selection overhead and exclude the first token.
+    """
+    import statistics
+    if new_tokens < 2 or repeats < 1:
+        raise ValueError("Use at least two output tokens and one measurement repeat")
+    if prompt_tokens.size(1) + new_tokens - 1 > model.config.block_size:
+        raise ValueError("Workload exceeds the fixed learned-position context window")
+    device = prompt_tokens.device
+    model.eval()
 
-    tokens_per_sec_uncached = new_tokens / t_uncached if t_uncached > 0 else 0
-    tokens_per_sec_cached = new_tokens / t_cached if t_cached > 0 else 0
-    speedup = t_uncached / t_cached if t_cached > 0 else 1.0
+    def sync():
+        if device.type == "cuda":
+            torch.cuda.synchronize(device)
+        elif device.type == "mps":
+            torch.mps.synchronize()
 
+    def cached_run():
+        sync()
+        begin = time.perf_counter()
+        logits, _, caches = model(prompt_tokens, use_cache=True)
+        token = logits[:, -1].argmax(-1, keepdim=True)
+        sync()
+        prefill = time.perf_counter() - begin
+        output = [prompt_tokens, token]
+        intervals = []
+        for _ in range(new_tokens - 1):
+            begin = time.perf_counter()
+            logits, _, caches = model(token, kv_caches=caches, use_cache=True)
+            token = logits[:, -1].argmax(-1, keepdim=True)
+            sync()
+            intervals.append(time.perf_counter() - begin)
+            output.append(token)
+        cache_bytes = sum(t.numel() * t.element_size() for pair in caches for t in pair)
+        return torch.cat(output, dim=1), prefill, intervals, cache_bytes
+
+    cached_run()
+    generate_uncached(model, prompt_tokens, new_tokens, temperature=0)
+    cached_times, uncached_times, prefills, decodes = [], [], [], []
+    for _ in range(repeats):
+        sync()
+        begin = time.perf_counter()
+        uncached = generate_uncached(model, prompt_tokens, new_tokens, temperature=0)
+        sync()
+        uncached_times.append(time.perf_counter() - begin)
+        cached, prefill, intervals, cache_bytes = cached_run()
+        if not torch.equal(cached, uncached):
+            raise AssertionError("Greedy tokens differ; investigate logits before timing conclusions")
+        cached_times.append(prefill + sum(intervals))
+        prefills.append(prefill)
+        decodes.extend(intervals)
+    tc, tu = statistics.median(cached_times), statistics.median(uncached_times)
     return {
-        "uncached_time_sec": round(t_uncached, 4),
-        "cached_time_sec": round(t_cached, 4),
-        "uncached_tokens_per_sec": round(tokens_per_sec_uncached, 2),
-        "cached_tokens_per_sec": round(tokens_per_sec_cached, 2),
-        "speedup_factor": round(speedup, 2),
-        "exact_token_match": torch.equal(out_uncached, out_cached),
+        "device": str(device), "batch_size": prompt_tokens.size(0),
+        "prompt_tokens": prompt_tokens.size(1), "new_tokens": new_tokens, "repeats": repeats,
+        "uncached_time_sec": tu, "cached_time_sec": tc,
+        "uncached_tokens_per_sec": prompt_tokens.size(0) * new_tokens / tu,
+        "cached_tokens_per_sec": prompt_tokens.size(0) * new_tokens / tc,
+        "speedup_factor": tu / tc, "exact_token_match": True,
+        "model_ttft_ms": 1000 * statistics.median(prefills),
+        "decode_interval_median_ms": 1000 * statistics.median(decodes),
+        "decode_interval_min_ms": 1000 * min(decodes),
+        "decode_interval_max_ms": 1000 * max(decodes),
+        "logical_cache_bytes": cache_bytes,
     }

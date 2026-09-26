@@ -42,6 +42,9 @@ def pack_documents(
         all_tokens.extend(tokens)
         all_tokens.append(eot_token_id)
 
+    limits = np.iinfo(dtype)
+    if all_tokens and (min(all_tokens) < limits.min or max(all_tokens) > limits.max):
+        raise ValueError(f"Token IDs do not fit {np.dtype(dtype)}; select a wider shard dtype")
     arr = np.array(all_tokens, dtype=dtype)
     os.makedirs(os.path.dirname(os.path.abspath(output_bin_path)), exist_ok=True)
     with open(output_bin_path, "wb") as f:

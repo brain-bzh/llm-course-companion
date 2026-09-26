@@ -7,6 +7,9 @@ Covers:
 
 import os
 import time
+import random
+import tempfile
+import numpy as np
 from contextlib import nullcontext
 from typing import Optional, Dict, Any
 import torch
@@ -91,6 +94,7 @@ def save_checkpoint(
     config: Any,
     step: int,
     val_loss: float,
+    extra_state: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Save model checkpoint with optimizer state and metadata."""
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
@@ -101,14 +105,31 @@ def save_checkpoint(
         "config": config,
         "step": step,
         "val_loss": val_loss,
+        "extra_state": extra_state or {},
+        "rng": {
+            "python": random.getstate(),
+            "numpy": np.random.get_state(),
+            "torch": torch.get_rng_state(),
+            "cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
+        },
     }
-    torch.save(state, path)
+    # Publish only a complete checkpoint; leave any previous checkpoint intact on failure.
+    fd, temporary = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(path)), suffix=".pt")
+    os.close(fd)
+    try:
+        torch.save(state, temporary)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def load_checkpoint(
     path: str,
     model: nn.Module,
     optimizer: Optional[torch.optim.Optimizer] = None,
+    *,
+    restore_rng: bool = False,
 ) -> Dict[str, Any]:
     """Load model weights and optimizer state from checkpoint."""
     checkpoint = torch.load(path, map_location="cpu", weights_only=False)
@@ -116,4 +137,11 @@ def load_checkpoint(
     raw_model.load_state_dict(checkpoint["model"])
     if optimizer is not None and "optimizer" in checkpoint:
         optimizer.load_state_dict(checkpoint["optimizer"])
+    if restore_rng:
+        rng = checkpoint["rng"]
+        random.setstate(rng["python"])
+        np.random.set_state(rng["numpy"])
+        torch.set_rng_state(rng["torch"])
+        if rng["cuda"] is not None:
+            torch.cuda.set_rng_state_all(rng["cuda"])
     return checkpoint

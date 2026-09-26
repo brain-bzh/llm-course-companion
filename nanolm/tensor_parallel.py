@@ -1,7 +1,7 @@
 """Megatron-style Tensor Parallelism (TP).
 
 Covers:
-- Module 9: Tensor parallelism (ColumnParallelLinear, RowParallelLinear, toy sharded MLP).
+- Module 7: Tensor parallelism (ColumnParallelLinear, RowParallelLinear, toy sharded MLP).
 """
 
 from typing import Optional
@@ -9,6 +9,42 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributed as dist
+
+
+def _check_world(world_size):
+    if world_size > 1 and (not dist.is_initialized() or dist.get_world_size() != world_size):
+        raise RuntimeError("Initialize a matching TP process group before using a sharded layer")
+
+
+class _CopyToTP(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x, world_size):
+        _check_world(world_size)
+        ctx.world_size = world_size
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, grad):
+        result = grad.contiguous().clone()
+        if ctx.world_size > 1:
+            dist.all_reduce(result)
+        return result, None
+
+
+class _ReduceFromTP(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x, world_size):
+        _check_world(world_size)
+        result = x.clone()
+        if world_size > 1:
+            dist.all_reduce(result)
+        return result
+
+    @staticmethod
+    def backward(ctx, grad):
+        # Replicated downstream loss supplies the same gradient on every rank.
+        # Each input shard receives that gradient once, not another all-reduce.
+        return grad, None
 
 
 class ColumnParallelLinear(nn.Module):
@@ -44,7 +80,7 @@ class ColumnParallelLinear(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Each rank computes its slice of the output features
-        return F.linear(x, self.weight, self.bias)
+        return F.linear(_CopyToTP.apply(x, self.world_size), self.weight, self.bias)
 
 
 class RowParallelLinear(nn.Module):
@@ -82,8 +118,7 @@ class RowParallelLinear(nn.Module):
         output_parallel = F.linear(x, self.weight)
 
         # Cross-rank All-Reduce sum
-        if self.world_size > 1 and dist.is_available() and dist.is_initialized():
-            dist.all_reduce(output_parallel, op=dist.ReduceOp.SUM)
+        output_parallel = _ReduceFromTP.apply(output_parallel, self.world_size)
 
         if self.bias is not None:
             output_parallel = output_parallel + self.bias
@@ -111,3 +146,26 @@ class ShardedMLP(nn.Module):
         h = self.gelu(self.fc1(x))
         out = self.fc2(h)
         return out
+
+
+def verify_sharded_mlp():
+    """Verify actual forward, input gradient and weight shards on the default group."""
+    world = dist.get_world_size() if dist.is_initialized() else 1
+    rank = dist.get_rank() if dist.is_initialized() else 0
+    torch.manual_seed(42)
+    ref = nn.Sequential(nn.Linear(16, 64, bias=False), nn.GELU(approximate="tanh"),
+                        nn.Linear(64, 16, bias=False))
+    tp = ShardedMLP(16, world, rank)
+    start, stop = rank*(64//world), (rank+1)*(64//world)
+    with torch.no_grad():
+        tp.fc1.weight.copy_(ref[0].weight[start:stop])
+        tp.fc2.weight.copy_(ref[2].weight[:, start:stop])
+    x = torch.randn(2, 4, 16, requires_grad=True)
+    parallel_x = x.detach().clone().requires_grad_()
+    expected, actual = ref(x), tp(parallel_x)
+    torch.testing.assert_close(actual, expected, atol=1e-6, rtol=1e-5)
+    expected.square().mean().backward()
+    actual.square().mean().backward()
+    for a, b in ((parallel_x.grad, x.grad), (tp.fc1.weight.grad, ref[0].weight.grad[start:stop]),
+                 (tp.fc2.weight.grad, ref[2].weight.grad[:, start:stop])):
+        torch.testing.assert_close(a, b, atol=1e-6, rtol=1e-5)
