@@ -139,8 +139,9 @@ def print_meta_model_summary(specs, tp_size):
     print("  largest parameter tensors:")
     for name, parameter in sorted(parameters, key=lambda item: item[1].numel(), reverse=True)[:5]:
         print(f"    {name}: {tuple(parameter.shape)} ({parameter.numel():,} values)")
-    column_weight = model.transformer.h[0].mlp.c_fc.weight
-    row_weight = model.transformer.h[0].mlp.c_proj.weight
+    param_dict = dict(parameters)
+    column_weight = param_dict["transformer.h.0.mlp.c_fc.weight"]
+    row_weight = param_dict["transformer.h.0.mlp.c_proj.weight"]
     if column_weight.shape[0] % tp_size or row_weight.shape[1] % tp_size:
         raise ValueError("MLP dimensions must divide evenly across the selected TP size.")
     column_shards = column_weight.chunk(tp_size, dim=0)

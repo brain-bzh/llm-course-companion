@@ -8,10 +8,13 @@ Demonstrates:
 """
 
 import tempfile
+
 import torch
-from nanolm.model import MiniGPT, GPTConfig
+
+from nanolm.model import GPTConfig, MiniGPT
 from nanolm.optim import configure_optimizers, get_lr_cosine_schedule
-from nanolm.train import train_step, optimizer_step, save_checkpoint, load_checkpoint
+from nanolm.train import load_checkpoint, optimizer_step, save_checkpoint, train_step
+
 
 def main():
     print("=== Module 2: Training Loop Anatomy ===")
@@ -27,6 +30,7 @@ def main():
 
     # Simulate 5 steps with gradient accumulation of 2
     grad_accum_steps = 2
+    loss = 0.0
     for step in range(5):
         lr = get_lr_cosine_schedule(step, warmup_steps=2, max_steps=10, max_lr=1e-3)
         for g in optimizer.param_groups:
@@ -38,7 +42,7 @@ def main():
             loss = train_step(model, optimizer, x, y, grad_accum_steps=grad_accum_steps)
 
         norm = optimizer_step(model, optimizer, grad_clip=1.0)
-        print(f"Step {step+1} | LR: {lr:.6f} | Micro-Loss: {loss:.4f} | Grad Norm: {norm:.4f}")
+        print(f"Step {step + 1} | LR: {lr:.6f} | Micro-Loss: {loss:.4f} | Grad Norm: {norm:.4f}")
 
     # Verify Checkpointing
     with tempfile.NamedTemporaryFile(suffix=".pt") as tmp:
@@ -46,6 +50,7 @@ def main():
         model2 = MiniGPT(config)
         meta = load_checkpoint(tmp.name, model2)
         print(f"\nCheckpoint successfully saved & recovered. Step: {meta['step']}, Val loss: {meta['val_loss']}")
+
 
 if __name__ == "__main__":
     main()

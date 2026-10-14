@@ -22,7 +22,7 @@ def speculative_decoding_analysis():
     print(f"{'Acceptance Rate (α)':<22} | " + " | ".join(f"K={k:<2}" for k in draft_lengths))
     print("-" * 55)
     for alpha in alphas:
-        row = []
+        row: list[str] = []
         for k in draft_lengths:
             expected_tokens = (1 - alpha ** (k + 1)) / (1 - alpha)
             row.append(f"{expected_tokens:>5.2f}")
@@ -33,7 +33,7 @@ def speculative_decoding_analysis():
     print(f"{'Acceptance Rate (α)':<22} | " + " | ".join(f"K={k:<2}" for k in draft_lengths))
     print("-" * 55)
     for alpha in alphas:
-        row = []
+        row: list[str] = []
         for k in draft_lengths:
             expected_tokens = (1 - alpha ** (k + 1)) / (1 - alpha)
             wall_speedup = expected_tokens / (k * 0.1 + 1.0)

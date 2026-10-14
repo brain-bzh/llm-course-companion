@@ -10,8 +10,9 @@ Demonstrates:
 """
 
 import tempfile
+
+from nanolm.data import BinaryShardedDataset, filter_by_alpha_ratio, filter_by_length, pack_documents
 from nanolm.tokenizer import BPETokenizer
-from nanolm.data import pack_documents, BinaryShardedDataset, filter_by_length, filter_by_alpha_ratio
 
 
 def main():
@@ -27,8 +28,7 @@ def main():
         "The Transformer architecture relies on multi-head scaled dot-product attention.",
     ]
     retained_docs = [
-        d for d in raw_docs
-        if filter_by_length(d, min_chars=20) and filter_by_alpha_ratio(d, min_ratio=0.6)
+        d for d in raw_docs if filter_by_length(d, min_chars=20) and filter_by_alpha_ratio(d, min_ratio=0.6)
     ]
     print(f"Raw documents: {len(raw_docs)} -> Retained clean documents: {len(retained_docs)}")
     print(f"Discarded {len(raw_docs) - len(retained_docs)} noisy documents to conserve GPU FLOPs.")
@@ -46,7 +46,9 @@ def main():
     tokenizer = BPETokenizer()
     target_vocab_size = 320  # 256 base bytes + 1 special token + 63 merges
     tokenizer.train(sample_corpus, vocab_size=target_vocab_size)
-    print(f"BPE training complete! Base bytes: 256 | Merges: {len(tokenizer.merges)} | Total vocab: {tokenizer.vocab_size}")
+    print(
+        f"BPE training complete! Base bytes: 256 | Merges: {len(tokenizer.merges)} | Total vocab: {tokenizer.vocab_size}"
+    )
     print(f"EOT token ID: {tokenizer.eot_token_id}")
 
     # Inspect top 5 learned merges
@@ -62,7 +64,7 @@ def main():
     raw_bytes = len(test_sentence.encode("utf-8"))
     token_ids = tokenizer.encode(test_sentence)
     compression = raw_bytes / len(token_ids)
-    print(f"\nCompression metric for: \"{test_sentence}\"")
+    print(f'\nCompression metric for: "{test_sentence}"')
     print(f"  Raw bytes: {raw_bytes} | Tokens: {len(token_ids)} | Compression ratio: {compression:.2f}x bytes/token")
 
     # Verify round-trip decoding

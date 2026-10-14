@@ -5,9 +5,10 @@ Demonstrates:
 - TransformerBlock auto-wrap policy formulation.
 """
 
-from nanolm.model import MiniGPT, GPTConfig
-from nanolm.profile_utils import memory_breakdown
+from nanolm.model import GPTConfig, MiniGPT
 from nanolm.optim import configure_optimizers
+from nanolm.profile_utils import memory_breakdown
+
 
 def main():
     print("=== Module 6: FSDP & ZeRO Sharding Analysis ===")
@@ -38,46 +39,20 @@ def main():
     print(f"{'DDP':<12} | {ddp_mem:9.1f} MB | {ddp_mem:7.1f} MB | {ddp_mem:7.1f} MB | {ddp_mem:7.1f} MB")
 
     # 2. ZeRO-1: Shard optimizer states across N ranks
-    for n_ranks in [1, 4, 8, 64]:
-        z1 = param_mb + grad_mb + (opt_mb / n_ranks)
-        if n_ranks == 1:
-            z1_str = f"{z1:9.1f} MB"
-        elif n_ranks == 4:
-            z1_str_4 = f"{z1:7.1f} MB"
-        elif n_ranks == 8:
-            z1_str_8 = f"{z1:7.1f} MB"
-        elif n_ranks == 64:
-            z1_str_64 = f"{z1:7.1f} MB"
-    print(f"{'ZeRO-1':<12} | {z1_str} | {z1_str_4} | {z1_str_8} | {z1_str_64}")
+    z1 = [param_mb + grad_mb + (opt_mb / n) for n in [1, 4, 8, 64]]
+    print(f"{'ZeRO-1':<12} | {z1[0]:9.1f} MB | {z1[1]:7.1f} MB | {z1[2]:7.1f} MB | {z1[3]:7.1f} MB")
 
     # 3. ZeRO-2: Shard optimizer states and gradients across N ranks
-    for n_ranks in [1, 4, 8, 64]:
-        z2 = param_mb + (grad_mb / n_ranks) + (opt_mb / n_ranks)
-        if n_ranks == 1:
-            z2_str = f"{z2:9.1f} MB"
-        elif n_ranks == 4:
-            z2_str_4 = f"{z2:7.1f} MB"
-        elif n_ranks == 8:
-            z2_str_8 = f"{z2:7.1f} MB"
-        elif n_ranks == 64:
-            z2_str_64 = f"{z2:7.1f} MB"
-    print(f"{'ZeRO-2':<12} | {z2_str} | {z2_str_4} | {z2_str_8} | {z2_str_64}")
+    z2 = [param_mb + (grad_mb / n) + (opt_mb / n) for n in [1, 4, 8, 64]]
+    print(f"{'ZeRO-2':<12} | {z2[0]:9.1f} MB | {z2[1]:7.1f} MB | {z2[2]:7.1f} MB | {z2[3]:7.1f} MB")
 
     # 4. ZeRO-3 / FSDP: Shard parameters, gradients, and optimizer states
-    for n_ranks in [1, 4, 8, 64]:
-        z3 = (param_mb / n_ranks) + (grad_mb / n_ranks) + (opt_mb / n_ranks)
-        if n_ranks == 1:
-            z3_str = f"{z3:9.1f} MB"
-        elif n_ranks == 4:
-            z3_str_4 = f"{z3:7.1f} MB"
-        elif n_ranks == 8:
-            z3_str_8 = f"{z3:7.1f} MB"
-        elif n_ranks == 64:
-            z3_str_64 = f"{z3:7.1f} MB"
-    print(f"{'FSDP/ZeRO-3':<12} | {z3_str} | {z3_str_4} | {z3_str_8} | {z3_str_64}")
+    z3 = [(param_mb / n) + (grad_mb / n) + (opt_mb / n) for n in [1, 4, 8, 64]]
+    print(f"{'FSDP/ZeRO-3':<12} | {z3[0]:9.1f} MB | {z3[1]:7.1f} MB | {z3[2]:7.1f} MB | {z3[3]:7.1f} MB")
 
     print("\nObservation: FSDP (ZeRO-3) scales down all static states linearly with world size,")
     print("at the cost of requiring all-gather collectives during forward and backward passes.")
+
 
 if __name__ == "__main__":
     main()

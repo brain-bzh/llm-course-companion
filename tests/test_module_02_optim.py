@@ -62,6 +62,7 @@ def test_tiny_batch_overfit():
     tokens = torch.tensor([[1, 5, 9, 2, 6, 10, 3, 7, 11]])
     inputs, targets = tokens[:, :-1], tokens[:, 1:]
 
+    loss = float("inf")
     for _ in range(80):
         loss = train_step(model, optimizer, inputs, targets)
         optimizer_step(model, optimizer)

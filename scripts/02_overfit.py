@@ -27,7 +27,8 @@ def main() -> None:
     inputs = tokens[:, :-1]
     targets = tokens[:, 1:]
 
-    initial_loss = None
+    initial_loss: float | None = None
+    loss = 0.0
     for step in range(80):
         loss = train_step(model, optimizer, inputs, targets)
         optimizer_step(model, optimizer)
