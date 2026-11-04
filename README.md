@@ -14,6 +14,7 @@ This repository provides an ultra-lean, pedagogical implementation of an end-to-
   - `tiktoken` (Standard Byte-Pair Encoding tokenizer for GPT-style models)
   - *(`pytest` for test verification)*
 - **Self-Contained & Isolated**: This repository has its own `pyproject.toml` and can be cloned independently. Course maintainers also pin it as the `companion/` submodule of [`brain-bzh/llm-course`](https://github.com/brain-bzh/llm-course).
+- **Python Version**: The companion uses CPython 3.12. The version file and project metadata keep `uv sync`, `uv run`, and CI on the same supported minor version; PyTorch 2.9.1 does not support `torch.compile` on Python 3.14.
 - **Intentional PyTorch Pin**: `torch==2.9.1` is the newest supported line with a prebuilt [FlashAttention v2.8.3.post1](https://github.com/Dao-AILab/flash-attention/releases/tag/v2.8.3.post1) wheel for the accelerated labs. Those wheels specifically target Linux, CPython 3.12, CUDA 13, and the C++11 ABI. The base `uv sync` remains cross-platform and does not install FlashAttention; do not upgrade PyTorch without checking or rebuilding that optional accelerated path.
 - **Pedagogical Transparency**: Every mechanism (attention, causal masking, weight decay grouping, token packing, KV caching, tensor parallelism, serving queues, MoE routing) is written in readable, well-commented PyTorch.
 
@@ -28,7 +29,10 @@ Navigate to the cloned repository and install dependencies using `uv`:
 git clone https://github.com/brain-bzh/llm-course-companion.git
 cd llm-course-companion
 
-# Sync virtual environment with minimal dependencies
+# Install or select Python 3.12, then sync minimal dependencies
+uv python install
+
+# Sync the project environment
 uv sync
 
 # Run the test suite
