@@ -18,9 +18,9 @@ def train_step(
     dtype: torch.dtype = torch.float32,
 ) -> float:
     """Run forward and backward, accumulating normalized gradients."""
-    # TODO: run the model under the appropriate autocast context.
+    # TODO: start with the ordinary FP32 forward pass.
     # TODO: divide loss by grad_accum_steps before backward.
-    # TODO: support both an AMP scaler and the ordinary backward path.
+    # Optional Module 4 extension: support autocast and a gradient scaler.
     raise NotImplementedError
 
 
@@ -31,7 +31,7 @@ def optimizer_step(
     scaler: Optional[torch.amp.GradScaler] = None,
 ) -> float:
     """Clip gradients, update parameters, and clear gradient buffers."""
-    # TODO: unscale first when using AMP, then clip before optimizer.step().
+    # TODO: clip before optimizer.step(). Optional AMP: unscale first.
     # TODO: clear gradients with set_to_none=True after the update.
     raise NotImplementedError
 
@@ -43,8 +43,12 @@ def save_checkpoint(
     config: Any,
     step: int,
     val_loss: float,
+    extra_state: Optional[dict[str, Any]] = None,
 ) -> None:
-    """Save model, optimizer, configuration, and progress metadata."""
+    """Save model, optimizer, configuration, progress and optional recovery metadata.
+
+    For baseline recovery, also save Python, NumPy and PyTorch RNG states.
+    """
     raise NotImplementedError
 
 
@@ -52,8 +56,10 @@ def load_checkpoint(
     path: str,
     model: nn.Module,
     optimizer: Optional[torch.optim.Optimizer] = None,
+    *,
+    restore_rng: bool = False,
 ) -> dict[str, Any]:
-    """Restore model state and, when supplied, optimizer state."""
+    """Restore model/optimizer and optionally the saved RNG states."""
     raise NotImplementedError
 
 
