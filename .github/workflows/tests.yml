@@ -1,29 +1,49 @@
 name: Test companion
 
+# Cost control:
+# - pushes and pull requests run Linux only;
+# - macOS and Windows run weekly and on demand (Actions tab → Run workflow);
+# - CPU-only PyTorch wheels: the lock file's Linux torch pulls ~3 GB of CUDA
+#   libraries that CPU tests never use;
+# - a newer push cancels the run it supersedes.
+
 on:
   push:
     branches:
       - main
+    paths-ignore:
+      - "**.md"
   pull_request:
+    paths-ignore:
+      - "**.md"
+  schedule:
+    - cron: "0 5 * * 1"  # Mondays 05:00 UTC: full platform matrix
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    # Native Windows is best effort: students on Windows are directed to WSL2,
-    # which is covered by the Ubuntu job. Remove this once Windows is green.
+        os: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["ubuntu-latest","macos-latest","windows-latest"]' || '["ubuntu-latest"]') }}
+    # Native Windows is best effort: students on Windows use WSL2 or the
+    # school's Linux machines. torchrun itself is not supported there.
     continue-on-error: ${{ matrix.os == 'windows-latest' }}
     env:
       PYTHONUTF8: "1"
-      USE_LIBUV: "0"  # only read on Windows (launcher TCPStore without libuv)
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -32,12 +52,21 @@ jobs:
         uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
+          cache-dependency-glob: uv.lock
 
-      - name: Install Python
-        run: uv python install
+      - name: Install CPU-only environment from the lock file
+        run: |
+          uv python install
+          uv venv
+          # Every pinned version except torch and its CUDA/Triton runtime libraries.
+          uv export --locked --no-hashes --no-emit-project --extra test --format requirements.txt \
+            | grep -v -E '^(torch|nvidia-|triton)' > ci-requirements.txt
+          uv pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.9.1"
+          uv pip install -r ci-requirements.txt
+          uv pip install --no-deps -e .
 
       - name: Run tests
-        run: uv run --locked pytest tests/ -v
+        run: uv run --no-sync pytest tests/ -q --durations=5
 
       - name: Verify every starter fails cleanly before it is implemented
-        run: uv run --locked python scripts/check_starters.py
+        run: uv run --no-sync python scripts/check_starters.py

@@ -21,6 +21,7 @@ flash-attention = [
 testpaths = ["tests"]
 python_files = "test_*.py"
 pythonpath = ["."]
+markers = ["distributed: launches several processes that communicate with Gloo"]
 
 [build-system]
 requires = ["setuptools>=61.0"]

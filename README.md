@@ -49,7 +49,7 @@ extensions.
 | --- | --- | --- |
 | Linux (x86-64, aarch64) | Supported, tested in CI | Also the setup for teaching GPUs |
 | macOS (Apple silicon, Intel) | Supported, tested in CI | |
-| Windows | Use **WSL2** (Ubuntu) | Native Windows runs in CI as best effort; see below |
+| Windows | Use **WSL2** (Ubuntu) or the school's Linux machines | Single-process labs work natively; `torchrun` does not (see below) |
 
 Launch every multi-process exercise with the same command:
 
@@ -59,8 +59,10 @@ uv run torchrun --standalone --local-addr=127.0.0.1 --nproc_per_node=2 scripts/0
 
 `--local-addr=127.0.0.1` keeps the launcher on the loopback address; the
 scripts pin Gloo to the loopback interface (`nanolm.distributed.configure_local_gloo`).
-On native Windows, also set `USE_LIBUV=0` before `torchrun`
-(PowerShell: `$env:USE_LIBUV = "0"`). If a two-rank command hangs for more than
+On native Windows, `torchrun` from PyTorch 2.9 fails with `use_libuv was
+requested but PyTorch was built without libuv support`, and setting `USE_LIBUV=0`
+does not fix it for the launcher. Run the multi-process labs in WSL2 or on the
+school's Linux machines. If a two-rank command hangs for more than
 a minute, see the troubleshooting section of the
 [companion guide](https://brain-bzh.github.io/llm-course/companion/#troubleshooting-distributed-runs).
 
@@ -151,6 +153,9 @@ uv run pytest tests/ -v                 # reference implementation: everything p
 uv run python scripts/check_starters.py # each starter imports and fails only on its TODOs
 ```
 
-Distributed tests launch real two-rank CPU jobs through `tests/conftest.py`, so
-the suite takes under a minute. CI runs both commands on Linux, macOS and
-Windows (Windows as best effort).
+Distributed tests (marked `distributed`) start real two-rank CPU jobs: the
+helper in `tests/conftest.py` launches the worker processes directly, and
+`tests/test_torchrun_launcher.py` checks the student `torchrun` command once.
+Skip them with `-m "not distributed"` for a quick run. CI installs CPU-only
+PyTorch and runs Linux on every push; macOS and Windows (best effort) run weekly
+and on demand.

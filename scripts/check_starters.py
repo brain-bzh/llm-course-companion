@@ -8,6 +8,9 @@ starter makes pytest report test failures (exit code 1) caused by
 NotImplementedError — never import or collection errors (exit code 2+).
 The reference implementation passing the same tests is checked by the
 ordinary `pytest tests/` run.
+
+Multi-process tests are skipped here (`-m "not distributed"`): the
+single-process tests already reach every TODO, and the labs run in parallel.
 """
 
 import os
@@ -15,6 +18,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 
@@ -50,20 +54,25 @@ def check(name: str, overlay: dict, test_file: str) -> bool:
         # editable install of the reference package.
         env = dict(os.environ, PYTHONPATH=str(work))
         result = subprocess.run(
-            [sys.executable, "-m", "pytest", f"tests/{test_file}", "-q", "-p", "no:cacheprovider"],
+            [sys.executable, "-m", "pytest", f"tests/{test_file}", "-q", "-p", "no:cacheprovider",
+             "-m", "not distributed"],
             cwd=work, env=env, capture_output=True, text=True, timeout=600,
         )
     output = result.stdout + result.stderr
     healthy = result.returncode == 1 and "NotImplementedError" in output
     summary = output.strip().splitlines()[-1] if output.strip() else "(no output)"
-    print(f"{'ok  ' if healthy else 'FAIL'} {name:34s} exit={result.returncode}  {summary}")
+    report = f"{'ok  ' if healthy else 'FAIL'} {name:34s} exit={result.returncode}  {summary}"
     if not healthy:
-        print(output[-3000:])
-    return healthy
+        report += "\n" + output[-3000:]
+    return healthy, report
 
 
 def main():
-    results = [check(name, overlay, test_file) for name, (overlay, test_file) in LABS.items()]
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        outcomes = list(pool.map(lambda lab: check(lab[0], *lab[1]), LABS.items()))
+    for _, report in outcomes:
+        print(report)
+    results = [healthy for healthy, _ in outcomes]
     if not all(results):
         raise SystemExit("Some starters are broken: see output above.")
     print("All starters import cleanly and fail only on their TODOs.")

@@ -1,19 +1,25 @@
-"""Shared helpers: launch a companion script on several CPU ranks with Gloo.
+"""Shared helpers: run a companion script on several CPU ranks with Gloo.
 
-The launch command is the one students use, on Linux, macOS and Windows:
+Students launch multi-process exercises with torchrun (Linux and macOS):
 
     uv run torchrun --standalone --local-addr=127.0.0.1 --nproc_per_node=2 scripts/<script>.py
 
-Platform notes:
-- `--local-addr=127.0.0.1` keeps the launcher's rendezvous on loopback instead of
-  a reverse-resolved hostname (which can hang on macOS laptops and some Wi-Fi/VPNs).
-- Workers call `nanolm.distributed.configure_local_gloo()` to pin Gloo to loopback.
-- Windows PyTorch wheels lack libuv for the launcher's TCPStore: set USE_LIBUV=0.
+The tests instead start the worker processes directly, with the same
+environment variables torchrun would set (RANK, WORLD_SIZE, MASTER_ADDR, ...).
+`init_process_group` then uses its standard env:// rendezvous. This
+- skips torchrun's agent process, saving one Python + torch start-up per test;
+- works on native Windows, where torchrun 2.9's launcher store requires libuv
+  and ignores USE_LIBUV=0 (the env:// rendezvous respects it).
+
+`test_torchrun_launcher.py` still checks the exact student command once.
+Tests that start several processes are marked `distributed`.
 """
 
 import os
+import socket
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -22,18 +28,53 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _run_torchrun(script: str, *args: str, nproc: int = 2, timeout: int = 180) -> subprocess.CompletedProcess:
-    env = dict(os.environ, OMP_NUM_THREADS="1", PYTHONUTF8="1")
-    if sys.platform == "win32":
-        env.setdefault("USE_LIBUV", "0")
-    cmd = [
-        sys.executable, "-m", "torch.distributed.run", "--standalone", "--local-addr=127.0.0.1",
-        f"--nproc_per_node={nproc}", str(ROOT / "scripts" / script), *args,
+def _free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def _worker_env(rank: int, nproc: int, port: int) -> dict:
+    return dict(
+        os.environ,
+        RANK=str(rank), LOCAL_RANK=str(rank), WORLD_SIZE=str(nproc), LOCAL_WORLD_SIZE=str(nproc),
+        GROUP_RANK="0", MASTER_ADDR="127.0.0.1", MASTER_PORT=str(port),
+        OMP_NUM_THREADS="1", PYTHONUTF8="1", USE_LIBUV="0",
+    )
+
+
+def run_ranks(script: str, *args: str, nproc: int = 2, timeout: int = 120) -> subprocess.CompletedProcess:
+    """Run scripts/<script> as `nproc` ranks; return rank 0's stdout and every rank's stderr."""
+    port = _free_port()
+    procs = [
+        subprocess.Popen(
+            [sys.executable, str(ROOT / "scripts" / script), *args],
+            cwd=ROOT, env=_worker_env(rank, nproc, port),
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        for rank in range(nproc)
     ]
-    return subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True, timeout=timeout)
+    deadline = time.monotonic() + timeout
+    outputs = []
+    try:
+        for proc in procs:
+            outputs.append(proc.communicate(timeout=max(1.0, deadline - time.monotonic())))
+    except subprocess.TimeoutExpired:
+        for proc in procs:
+            proc.kill()
+        pytest.fail(f"{script} did not finish within {timeout}s (a rank is probably waiting on a collective)")
+    returncode = next((p.returncode for p in procs if p.returncode != 0), 0)
+    stderr = "\n".join(f"--- rank {rank} stderr ---\n{err}" for rank, (_, err) in enumerate(outputs) if err.strip())
+    return subprocess.CompletedProcess(procs[0].args, returncode, outputs[0][0], stderr)
 
 
 @pytest.fixture
 def torchrun():
-    """Return a function that runs `scripts/<script>` under torchrun and returns the process."""
-    return _run_torchrun
+    """Return run_ranks: launches `scripts/<script>` as several Gloo ranks."""
+    return run_ranks
+
+
+def pytest_collection_modifyitems(items):
+    for item in items:
+        if "torchrun" in getattr(item, "fixturenames", ()):
+            item.add_marker(pytest.mark.distributed)
