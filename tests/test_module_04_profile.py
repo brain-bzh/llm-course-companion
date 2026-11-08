@@ -36,3 +36,16 @@ def test_attention_check_detects_missing_sdpa_path(monkeypatch):
     monkeypatch.setattr(module, "MiniGPT", ignore_sdpa)
     with pytest.raises(AssertionError, match="check that your model honors use_sdpa"):
         module.check_attention(torch.device("cpu"))
+
+
+def test_static_memory_is_sixteen_bytes_per_fp32_parameter_with_adamw():
+    import torch
+    from nanolm.model import MiniGPT
+    from nanolm.profile_utils import memory_breakdown
+
+    model = MiniGPT(GPTConfig(vocab_size=64, block_size=8, n_layer=1, n_head=2, n_embd=16))
+    n = sum(p.numel() for p in model.parameters())  # tied weight counted once
+    mb = memory_breakdown(model, torch.optim.AdamW(model.parameters()))
+    assert mb["parameters_mb"] * 2**20 == 4 * n
+    assert mb["optimizer_states_mb"] * 2**20 == 8 * n
+    assert mb["total_static_mb"] * 2**20 == 16 * n

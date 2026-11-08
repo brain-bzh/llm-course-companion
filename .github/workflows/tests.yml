@@ -12,7 +12,18 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    # Native Windows is best effort: students on Windows are directed to WSL2,
+    # which is covered by the Ubuntu job. Remove this once Windows is green.
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
+    env:
+      PYTHONUTF8: "1"
+      USE_LIBUV: "0"  # only read on Windows (launcher TCPStore without libuv)
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -28,3 +39,5 @@ jobs:
       - name: Run tests
         run: uv run --locked pytest tests/ -v
 
+      - name: Verify every starter fails cleanly before it is implemented
+        run: uv run --locked python scripts/check_starters.py

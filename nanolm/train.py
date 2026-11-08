@@ -2,7 +2,7 @@
 
 Covers:
 - Module 2: Training-loop anatomy (gradient accumulation, clipping, AMP, checkpointing).
-- Module 4: Train a small GPT (training execution, validation monitoring).
+- Module 2 (Part B): Baseline GPT (training execution, validation monitoring).
 """
 
 import os

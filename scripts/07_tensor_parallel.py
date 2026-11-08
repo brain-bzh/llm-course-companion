@@ -1,18 +1,17 @@
 """Module 7: actual Gloo TP forward/backward equivalence on CPU.
 
-uv run torchrun --standalone --nproc_per_node=2 scripts/07_tensor_parallel.py
+uv run torchrun --standalone --local-addr=127.0.0.1 --nproc_per_node=2 scripts/07_tensor_parallel.py
 """
 import os
-import sys
 import torch
 import torch.distributed as dist
+from nanolm.distributed import configure_local_gloo
 from nanolm.tensor_parallel import verify_sharded_mlp
 
 
 def main():
     torch.set_num_threads(1)
-    if sys.platform == 'darwin':
-        os.environ.setdefault('GLOO_SOCKET_IFNAME', 'lo0')
+    configure_local_gloo()
     if int(os.environ.get('WORLD_SIZE', 1)) > 1:
         dist.init_process_group('gloo')
     try:

@@ -39,6 +39,31 @@ uv sync
 uv run pytest tests/ -v
 ```
 
+### Supported platforms
+
+Every lab runs on a laptop CPU. Distributed labs use two or more CPU processes
+with PyTorch's Gloo backend; GPUs are only needed for the optional measurement
+extensions.
+
+| Platform | Status | Notes |
+| --- | --- | --- |
+| Linux (x86-64, aarch64) | Supported, tested in CI | Also the setup for teaching GPUs |
+| macOS (Apple silicon, Intel) | Supported, tested in CI | |
+| Windows | Use **WSL2** (Ubuntu) | Native Windows runs in CI as best effort; see below |
+
+Launch every multi-process exercise with the same command:
+
+```bash
+uv run torchrun --standalone --local-addr=127.0.0.1 --nproc_per_node=2 scripts/05_manual_ddp.py
+```
+
+`--local-addr=127.0.0.1` keeps the launcher on the loopback address; the
+scripts pin Gloo to the loopback interface (`nanolm.distributed.configure_local_gloo`).
+On native Windows, also set `USE_LIBUV=0` before `torchrun`
+(PowerShell: `$env:USE_LIBUV = "0"`). If a two-rank command hangs for more than
+a minute, see the troubleshooting section of the
+[companion guide](https://brain-bzh.github.io/llm-course/companion/#troubleshooting-distributed-runs).
+
 On a compatible Linux GPU environment (CPython 3.12, CUDA 13), install the
 optional prebuilt FlashAttention path with:
 
@@ -49,99 +74,83 @@ uv sync --extra flash-attention
 The extra uses the Torch version from the runtime environment while resolving
 FlashAttention's build dependency, matching the setup used in the REVE project.
 
-To run any module demo script:
+### How the labs work
+
+`nanolm/` always contains a complete, tested **reference** implementation, so
+every later lab runs from a fresh clone. For a hands-on lab, create a branch
+and copy the lab's starter over the reference module:
 
 ```bash
-uv run --extra gpt2 python scripts/01_gpt2_parity.py
-uv run python scripts/02_overfit.py
-uv run python scripts/09_kv_cache_bench.py
+git switch -c session-14-ddp
+cp starter/05_ddp_manual.py nanolm/ddp_manual.py
+uv run pytest tests/test_module_05_ddp.py -q   # fails with NotImplementedError until you finish
 ```
 
----
+Lab 1 records the starting revision in `.course-reference-revision`. To recover
+the reference for a file later, commit your work first, then run
+`git show "$(cat .course-reference-revision):nanolm/<file>.py" > nanolm/<file>.py`.
+The lab guides say which file each session replaces.
 
 ## 3. Module-by-Module Topic Coverage
 
-| Module | Topic | Conceptual Coverage | Companion Code Module | Runnable Script | Verification / Milestone |
-| :---: | :--- | :--- | :--- | :--- | :--- |
-| **1** | [**Transformer from first principles**](https://brain-bzh.github.io/llm-course/companion/01-transformer/) | Reimplement explicit causal MHA, a Pre-LN Transformer block, embeddings, repeated blocks, and an LM head with tied weights. | [`starter/01_transformer.py`](starter/01_transformer.py)<br>[`nanolm/model.py`](nanolm/model.py)<br>[`nanolm/gpt2.py`](nanolm/gpt2.py) | [`scripts/01_gpt2_parity.py`](scripts/01_gpt2_parity.py) | **Exit criterion**: The student-built model reproduces official GPT-2 logits and a verified next-token log-probability. |
-| **2** | **Training-loop anatomy & small-model overfit** | Shifted targets, AdamW parameter grouping, warmup/cosine decay, accumulation, norm clipping, and checkpoint recovery. | [`starter/02_training/`](starter/02_training/)<br>[`nanolm/optim.py`](nanolm/optim.py)<br>[`nanolm/train.py`](nanolm/train.py) | [`scripts/02_overfit.py`](scripts/02_overfit.py)<br>[`scripts/02_train_baseline.py`](scripts/02_train_baseline.py) | **Exit criterion**: A small NanoLM overfits one batch (`loss < 0.1`) and reloads with identical logits. |
-| **3** | **Pretraining data pipeline** | Heuristic quality filtering, BPE tokenizer training, `<\|endoftext\|>` document delimiters, contiguous token sequence packing, binary uint16 memmap shards, and streaming batch loader. | [`nanolm/tokenizer.py`](nanolm/tokenizer.py)<br>[`nanolm/data.py`](nanolm/data.py) | [`scripts/03_prepare_dataset.py`](scripts/03_prepare_dataset.py) | Round-trip tokenization & memory-mapped slice validation. |
-| **4** | **Single-GPU performance** | Static VRAM breakdown (weights, gradients, AdamW states), FLOPs counting per token, Model FLOPs Utilization (MFU), PyTorch SDPA, and mixed precision (`bfloat16`). | [`nanolm/profile_utils.py`](nanolm/profile_utils.py) | [`scripts/04_single_gpu_perf.py`](scripts/04_single_gpu_perf.py) | Measured tokens/second, MFU %, and memory footprint report. |
-| **5** | **Distributed data parallelism** | Multi-GPU scaling with `torchrun`, `torch.distributed`, `DistributedDataParallel` wrapper, gradient all-reduce, accumulation with `no_sync()`, and global token accounting. | [`nanolm/distributed.py`](nanolm/distributed.py) | [`scripts/05_train_ddp.py`](scripts/05_train_ddp.py) | Verified synchronization, sample coverage, and global token counts. |
-| **6** | **FSDP and ZeRO** | Parameter, gradient, and optimizer state sharding (ZeRO-1, ZeRO-2, ZeRO-3 / FSDP), PyTorch `FullyShardedDataParallel`, auto-wrap policies, and activation checkpointing. | [`nanolm/fsdp_utils.py`](nanolm/fsdp_utils.py) | [`scripts/06_fsdp_experiment.py`](scripts/06_fsdp_experiment.py) | Analytical and empirical comparison of peak memory vs DDP. |
-| **7** | **Tensor parallelism** | Megatron-LM intra-layer model partitioning: ColumnParallelLinear (partition output dimension), RowParallelLinear (partition input dimension with all-reduce), and intermediate collective elimination. | [`nanolm/tensor_parallel.py`](nanolm/tensor_parallel.py) | [`scripts/07_tensor_parallel.py`](scripts/07_tensor_parallel.py) | Mathematical equivalence check between TP MLP and standard MLP. |
-| **8** | **Context, pipeline & expert parallelism** | Student-defined rank layouts, meta-device shape inspection, multidimensional state sizing, and PP schedule trade-offs. | [`nanolm/parallelism_calc.py`](nanolm/parallelism_calc.py) | [`scripts/08_parallelism_layout.py`](scripts/08_parallelism_layout.py)<br>[`scripts/08_parallelism_sizing.py`](scripts/08_parallelism_sizing.py) | Rank-group map, parameter census, and comparative placement estimates. |
-| **9** | **KV-cached decoding** | Autoregressive decoding bottlenecks ($O(T^2)$ compute vs $O(T)$), prefill vs decode stages, Key-Value cache tensor management, and MHA vs GQA cache footprint. | [`nanolm/kv_cache.py`](nanolm/kv_cache.py)<br>[`nanolm/model.py`](nanolm/model.py) | [`scripts/09_kv_cache_bench.py`](scripts/09_kv_cache_bench.py) | Strict token & logit equivalence test + latency speedup benchmark. |
-| **10** | **Serving systems** | Serving constraints, continuous (iteration-level) batching scheduler, paged KV-cache memory allocation, Time To First Token (TTFT), Inter-Token Latency (ITL), and throughput. | [`nanolm/serving_sim.py`](nanolm/serving_sim.py) | [`scripts/10_serving_benchmark.py`](scripts/10_serving_benchmark.py) | Discrete-event serving simulation report with TTFT/ITL histograms. |
-| **11** | **Frontier architectures** | Speculative decoding dynamics, DeepSeek MLA cache savings, linear attention, and Sparse Mixture of Experts (MoE) with top-k routing and load-balancing loss. | [`nanolm/moe.py`](nanolm/moe.py) | [`scripts/11_frontier_exploration.py`](scripts/11_frontier_exploration.py) | Speculative speedup modeling, MLA compression calculation, and MoE routing loss validation. |
-
----
+| Module | Hands-on starter (you implement) | Reference modules | Runnable scripts | Exit criterion |
+| :---: | :--- | :--- | :--- | :--- |
+| **1** [Transformer](https://brain-bzh.github.io/llm-course/companion/01-transformer/) | `starter/01_transformer.py` | `nanolm/model.py`, `nanolm/gpt2.py` | `01_gpt2_parity.py` | Your model reproduces official GPT-2 logits |
+| **2** [Training loop](https://brain-bzh.github.io/llm-course/companion/02-training-loop/) | `starter/02_training/` | `nanolm/optim.py`, `nanolm/train.py`, `nanolm/baseline.py` | `02_overfit.py`, `02_train_baseline.py` | One-batch loss `< 0.1`; exact checkpoint resume |
+| **3** [Data pipeline](https://brain-bzh.github.io/llm-course/companion/03-data-pipeline/) | `starter/03_data.py` | `nanolm/data.py`, `nanolm/tokenizer.py` | `03_prepare_dataset.py` | Disjoint splits, visible boundaries, shifted batches |
+| **4** [Single-GPU performance](https://brain-bzh.github.io/llm-course/companion/04-single-gpu/) | `starter/04_profile_utils.py` (+ SDPA branch in your model) | `nanolm/profile_utils.py` | `04_check_execution.py`, `04_single_gpu_perf.py` | Predicted FLOPs/memory; one controlled ablation |
+| **5** [DDP](https://brain-bzh.github.io/llm-course/companion/05-ddp/) | `starter/05_ddp_manual.py` | `nanolm/ddp_manual.py`, `nanolm/distributed.py` | `05_manual_ddp.py`, `05_train_ddp.py` | Hand-written DDP equals one global-batch run |
+| **6** [FSDP and ZeRO](https://brain-bzh.github.io/llm-course/companion/06-fsdp/) | `starter/06_zero.py` | `nanolm/zero.py`, `nanolm/fsdp_utils.py` | `06_zero_manual.py`, `06_fsdp2.py`, `06_checkpoint_formats.py` | Sharded AdamW and FSDP2 match the reference; measured per-rank state |
+| **7** [Tensor parallelism](https://brain-bzh.github.io/llm-course/companion/07-tensor-parallelism/) | `starter/07_tensor_parallel.py` | `nanolm/tensor_parallel.py` | `07_tensor_parallel.py` | Two-rank forward and backward equal the dense MLP |
+| **8** [CP, PP and EP](https://brain-bzh.github.io/llm-course/companion/08-context-pipeline/) | edit `MODEL`/`LAYOUT` in the script | `nanolm/parallelism_calc.py` | `08_parallelism_layout.py`, `08_parallelism_sizing.py` | Defended rank layout with stated assumptions |
+| **9** [KV cache](https://brain-bzh.github.io/llm-course/companion/09-kv-cache/) | `starter/09_generate.py` (+ cache path in your model) | `nanolm/generate.py`, `nanolm/kv_cache.py` | `09_kv_cache_bench.py` | Cached and uncached logits/tokens agree |
+| **10** [Serving](https://brain-bzh.github.io/llm-course/companion/10-serving/) | optional | `nanolm/serving_sim.py` | `10_serving_benchmark.py` | Interpret TTFT/ITL/throughput across four policies |
+| **11** [Frontier (optional)](https://brain-bzh.github.io/llm-course/companion/11-frontier-architectures/) | — | `nanolm/moe.py` | `11_frontier_exploration.py` | Optional modeling |
 
 ## 4. Repository Structure
 
 ```text
 llm-course-companion/
-├── pyproject.toml              # Environment definition (torch, numpy, tiktoken, pytest)
-├── README.md                   # Overview & module mapping guide
-├── uv.lock                     # Locked dependencies for reproducible environments
-├── starter/                    # Incomplete student starting points
-│   ├── 01_transformer.py       # Module 1: MHA and Transformer TODO scaffold
-│   └── 02_training/            # Module 2: optimizer and loop TODO scaffolds
-├── nanolm/                     # Core library
-│   ├── __init__.py             # Public exports (MiniGPT, GPTConfig, get_tokenizer)
-│   ├── model.py                # Decoder-only GPT with causal attention & KV hooks
-│   ├── gpt2.py                 # Provided Hugging Face GPT-2 weight converter
-│   ├── optim.py                # AdamW weight decay grouping & cosine schedule
-│   ├── tokenizer.py            # Tiktoken BPE wrapper with fallback
-│   ├── data.py                 # Document packing, binary memmaps, batch loading
-│   ├── train.py                # Training step, accumulation, clipping, checkpointing
-│   ├── generate.py             # Autoregressive generation (cached & uncached)
-│   ├── profile_utils.py        # FLOPs counter, MFU estimation, memory breakdown
-│   ├── distributed.py          # DDP process group setup & all-reduce helpers
-│   ├── fsdp_utils.py           # PyTorch FSDP auto-wrap policy and configuration
-│   ├── tensor_parallel.py      # ColumnParallelLinear, RowParallelLinear, sharded MLP
-│   ├── parallelism_calc.py     # Analytical 3D/4D/5D parallelism sizing calculator
-│   ├── kv_cache.py             # Key-Value cache manager & benchmark
-│   ├── serving_sim.py          # Continuous batching & paged memory simulation
-│   └── moe.py                  # Sparse MoE layer with top-k router & aux loss
-├── scripts/                    # Standalone executable module demonstrations
-│   ├── 01_gpt2_parity.py       # Module 1: official GPT-2 logit parity
-│   ├── 02_overfit.py           # Module 2: one-batch overfit & checkpoint round-trip
-│   ├── 02_training_step.py     # Module 2: Optimizer step & checkpoint test
-│   ├── 02_train_baseline.py    # Module 2: Baseline training & text sampling
-│   ├── 03_prepare_dataset.py   # Module 3: BPE packing to binary memmap
-│   ├── 04_single_gpu_perf.py   # Module 4: Memory breakdown, FLOPs & MFU
-│   ├── 05_train_ddp.py         # Module 5: DDP distributed training launcher
-│   ├── 06_fsdp_experiment.py   # Module 6: ZeRO-1/2/3 memory scaling comparison
-│   ├── 07_tensor_parallel.py   # Module 7: TP column/row linear equivalence
-│   ├── 08_parallelism_layout.py # Module 8: Student-defined layout & Gloo TP check
-│   ├── 08_parallelism_sizing.py # Module 8: Multidimensional cluster sizing & hierarchy
-│   ├── 09_kv_cache_bench.py    # Module 9: KV-cache vs uncached benchmark
-│   ├── 10_serving_benchmark.py # Module 10: Continuous batching simulation
-│   └── 11_frontier_exploration.py # Module 11: Speculative decode, MLA, linear attention & MoE
-└── tests/                      # Automated unit test suite
-    ├── test_module_01_model.py
-    ├── test_module_02_optim.py
-    ├── test_module_03_data.py
-    ├── test_module_07_tp.py
-    ├── test_module_09_kv_cache.py
-    └── test_module_11_frontier.py
+├── starter/                     # TODO scaffolds: copy one over its nanolm/ module on a lab branch
+│   ├── 01_transformer.py        # -> nanolm/model.py
+│   ├── 02_training/             # -> nanolm/optim.py, nanolm/train.py
+│   ├── 03_data.py               # -> nanolm/data.py
+│   ├── 04_profile_utils.py      # -> nanolm/profile_utils.py
+│   ├── 05_ddp_manual.py         # -> nanolm/ddp_manual.py
+│   ├── 06_zero.py               # -> nanolm/zero.py
+│   ├── 07_tensor_parallel.py    # -> nanolm/tensor_parallel.py
+│   └── 09_generate.py           # -> nanolm/generate.py
+├── nanolm/                      # Complete reference library
+│   ├── model.py                 # Decoder-only GPT, explicit/SDPA attention, KV-cache path
+│   ├── gpt2.py                  # Hugging Face GPT-2 weight converter
+│   ├── optim.py, train.py       # AdamW grouping, schedule, update order, checkpoints
+│   ├── baseline.py              # Byte-level baseline with exact resume
+│   ├── tokenizer.py, data.py    # BPE, dedupe-before-split, packing, memmap loader
+│   ├── data_selection.py        # Filtering, exact/near deduplication
+│   ├── profile_utils.py         # FLOPs, MFU, static memory
+│   ├── distributed.py           # Process-group setup, loopback Gloo configuration
+│   ├── ddp_manual.py            # Hand-written data parallelism
+│   ├── zero.py                  # Hand-written sharded AdamW (ZeRO-1/2)
+│   ├── fsdp_utils.py            # FSDP2 wrapping and per-rank state measurement
+│   ├── tensor_parallel.py       # Column/row parallel layers with autograd collectives
+│   ├── parallelism_calc.py      # Multidimensional layout and state calculator
+│   ├── generate.py, kv_cache.py # Cached/uncached generation, prefill/decode benchmark
+│   ├── serving_sim.py           # Static/continuous batching, reserved/paged KV simulator
+│   └── moe.py                   # Top-k MoE with load-balancing loss
+├── scripts/                     # One runnable experiment per lab step (see table above)
+│   └── check_starters.py        # Maintainer check: starters fail only on their TODOs
+└── tests/                       # One test file per module; conftest.py launches torchrun
 ```
 
 ---
 
 ## 5. Verification & Testing
 
-Run all unit tests:
-
 ```bash
-uv run pytest tests/ -v
+uv run pytest tests/ -v                 # reference implementation: everything passes
+uv run python scripts/check_starters.py # each starter imports and fails only on its TODOs
 ```
 
-Expected test outcomes:
-- `test_module_01_model.py`: Progressively verifies explicit MHA, causality, the Transformer block, full-model shape, weight tying, and the GPT-2 mapping contract.
-- `test_module_02_optim.py`: Verifies AdamW grouping, the learning-rate schedule, one-batch overfitting, and exact checkpoint recovery.
-- `test_module_03_data.py`: Verifies BPE encoding/decoding and binary memmap batch alignment.
-- `test_module_07_tp.py`: Verifies numerical equivalence between partitioned Column/Row linear layers and standard Linear layers.
-- `test_module_09_kv_cache.py`: Verifies that KV-cached incremental generation produces tokens and logits identical to full uncached generation.
-- `test_module_11_frontier.py`: Verifies MoE output shapes, top-k dispatch, and positive auxiliary load-balancing loss.
+Distributed tests launch real two-rank CPU jobs through `tests/conftest.py`, so
+the suite takes under a minute. CI runs both commands on Linux, macOS and
+Windows (Windows as best effort).

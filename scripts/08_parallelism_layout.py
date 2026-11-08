@@ -4,16 +4,16 @@ Run the default logical layout with:
     uv run python scripts/08_parallelism_layout.py
 
 For the real two-rank check, set LAYOUT to a pure TP=2 layout below and run:
-    uv run torchrun --standalone --nproc_per_node=2 scripts/08_parallelism_layout.py --gloo-check
+    uv run torchrun --standalone --local-addr=127.0.0.1 --nproc_per_node=2 scripts/08_parallelism_layout.py --gloo-check
 """
 import argparse
 from itertools import product
 import os
-import sys
 
 import torch
 import torch.distributed as dist
 
+from nanolm.distributed import configure_local_gloo
 from nanolm.model import GPTConfig, MiniGPT
 from nanolm.parallelism_calc import (
     ModelSpecs,
@@ -214,8 +214,7 @@ def run_gloo_reuse_check(config):
         raise ValueError("The Gloo check requires a pure TP layout; set TP to the process count and other axes to 1.")
     if "WORLD_SIZE" not in os.environ:
         raise ValueError("Launch the Gloo check with torchrun so multiple CPU ranks participate.")
-    if sys.platform == "darwin":
-        os.environ.setdefault("GLOO_SOCKET_IFNAME", "lo0")
+    configure_local_gloo()
 
     dist.init_process_group("gloo")
     try:

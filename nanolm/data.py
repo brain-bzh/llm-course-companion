@@ -5,7 +5,7 @@ Covers:
 """
 
 import os
-from typing import List, Tuple, Generator
+from typing import Dict, Generator, List, Tuple
 import numpy as np
 import torch
 
@@ -22,6 +22,34 @@ def filter_by_alpha_ratio(doc: str, min_ratio: float = 0.6) -> bool:
         return False
     alphanumeric = sum(c.isalnum() or c.isspace() for c in doc)
     return (alphanumeric / len(doc)) >= min_ratio
+
+
+def normalize_text(text: str) -> str:
+    """Whitespace-normalized text used to detect exact duplicates."""
+    return " ".join(text.split())
+
+
+def assign_splits(records: List[Tuple[str, str, str]]) -> Tuple[Dict[str, List[Tuple[str, str]]], List[Tuple[str, str]]]:
+    """Deduplicate documents BEFORE splitting, so no text appears in two splits.
+
+    `records` holds (doc_id, proposed_split, text) in a fixed order. Policy:
+    the first record of each exact-duplicate group (after whitespace
+    normalization) is kept in its proposed split; every later copy is dropped,
+    wherever it was proposed.
+
+    Returns ({split: [(doc_id, text), ...]}, [(dropped_id, kept_id), ...]).
+    """
+    splits: Dict[str, List[Tuple[str, str]]] = {}
+    first_id: Dict[str, str] = {}
+    dropped: List[Tuple[str, str]] = []
+    for doc_id, split, text in records:
+        key = normalize_text(text)
+        if key in first_id:
+            dropped.append((doc_id, first_id[key]))
+            continue
+        first_id[key] = doc_id
+        splits.setdefault(split, []).append((doc_id, text))
+    return splits, dropped
 
 
 def pack_documents(

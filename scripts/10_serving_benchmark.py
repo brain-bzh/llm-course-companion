@@ -1,48 +1,61 @@
-"""Module 11 — Serving systems.
+"""Module 10: one workload, four engine policies, in a deterministic simulator.
 
-Demonstrates:
-- Continuous (iteration-level) batching vs static batching.
-- Paged KV memory block allocation.
-- Measuring Time To First Token (TTFT), Inter-Token Latency (ITL), and Request Throughput.
+    uv run python scripts/10_serving_benchmark.py
+    uv run python scripts/10_serving_benchmark.py --blocks 16 --trace
+
+Compares static vs continuous batching and reserved vs paged KV allocation
+on the same staggered arrivals. Times are simulated, not measured on hardware.
 """
 
-from nanolm.serving_sim import Request, ContinuousBatchingSimulator
+import argparse
+
+from nanolm.serving_sim import ContinuousBatchingSimulator, Request
+
+
+WORKLOAD = [  # (arrival s, prompt tokens, output tokens)
+    (0.00, 32, 16), (0.01, 48, 32), (0.02, 16, 8), (0.03, 64, 24),
+    (0.05, 20, 12), (0.08, 40, 20), (0.10, 16, 16), (0.12, 32, 8),
+]
+
+
+def run(scheduler, allocation, args, trace=False):
+    sim = ContinuousBatchingSimulator(
+        max_batch_size=args.batch, total_blocks=args.blocks, block_size=16,
+        step_latency_sec=0.015, prefill_sec_per_token=0.0002,
+        scheduler=scheduler, allocation=allocation, max_output_len=32,
+    )
+    for i, (arrival, prompt, output) in enumerate(WORKLOAD, start=1):
+        sim.add_request(Request(i, arrival, prompt, output))
+    if trace:
+        print(f"\ntrace: {scheduler} batching, {allocation} KV")
+        print(f"{'t (ms)':>8s}  running (id:generated/output)       waiting  KV blocks")
+        while sim.waiting_queue or sim.running_batch:
+            sim.step()
+            running = " ".join(f"{r.req_id}:{r.generated_tokens}/{r.output_len}" for r in sim.running_batch)
+            waiting = [r.req_id for r in sim.waiting_queue if r.arrival_time <= sim.current_time]
+            print(f"{1000 * sim.current_time:8.1f}  {running:34s} {str(waiting):8s} {sim.allocator.used_blocks:3d}")
+    return sim.run_all()
+
 
 def main():
-    print("=== Module 11: Continuous Batching & Serving Benchmark ===")
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--batch", type=int, default=4, help="maximum running requests")
+    parser.add_argument("--blocks", type=int, default=24, help="KV blocks of 16 tokens")
+    parser.add_argument("--trace", action="store_true", help="print the continuous+paged iteration trace")
+    args = parser.parse_args()
+    print(f"workload: {len(WORKLOAD)} requests; batch <= {args.batch}; {args.blocks} KV blocks x 16 tokens")
+    cols = {"mean_ttft_ms": "TTFT mean", "max_ttft_ms": "TTFT max", "mean_itl_ms": "ITL mean",
+            "output_tokens_per_sec": "out tok/s", "peak_running_requests": "peak run",
+            "peak_kv_blocks": "peak blocks", "preemptions": "preempt"}
+    print("times in ms of simulated clock")
+    print(f"\n{'policy':22s}" + "".join(f"{label:>12s}" for label in cols.values()))
+    for scheduler in ("static", "continuous"):
+        for allocation in ("reserve", "paged"):
+            m = run(scheduler, allocation, args)
+            print(f"{scheduler + ' + ' + allocation:22s}" + "".join(f"{m[c]:12}" for c in cols))
+    if args.trace:
+        run("continuous", "paged", args, trace=True)
 
-    sim = ContinuousBatchingSimulator(
-        max_batch_size=4,
-        total_blocks=64,
-        block_size=16,
-        step_latency_sec=0.015,  # 15 ms per token step
-    )
-
-    # Workload of 8 arriving requests with variable lengths
-    workload = [
-        Request(req_id=1, arrival_time=0.00, prompt_len=32, output_len=16),
-        Request(req_id=2, arrival_time=0.01, prompt_len=48, output_len=32),
-        Request(req_id=3, arrival_time=0.02, prompt_len=16, output_len=8),
-        Request(req_id=4, arrival_time=0.03, prompt_len=64, output_len=24),
-        Request(req_id=5, arrival_time=0.05, prompt_len=20, output_len=12),
-        Request(req_id=6, arrival_time=0.08, prompt_len=40, output_len=20),
-        Request(req_id=7, arrival_time=0.10, prompt_len=16, output_len=16),
-        Request(req_id=8, arrival_time=0.12, prompt_len=32, output_len=8),
-    ]
-
-    for req in workload:
-        sim.add_request(req)
-
-    print(f"Simulating continuous batching scheduler for {len(workload)} requests...")
-    metrics = sim.run_all()
-
-    print("\n--- Serving Benchmark Report ---")
-    print(f"Total Requests Completed:   {metrics['total_requests']}")
-    print(f"Total Time:                 {metrics['total_sim_time_sec']} s")
-    print(f"Mean TTFT:                  {metrics['mean_ttft_ms']} ms")
-    print(f"Mean Inter-Token Latency:   {metrics['mean_itl_ms']} ms")
-    print(f"Request Throughput:         {metrics['request_throughput_req_per_sec']} req/s")
-    print(f"Token Throughput:           {metrics['token_throughput_tokens_per_sec']} tokens/s")
 
 if __name__ == "__main__":
     main()

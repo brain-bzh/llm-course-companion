@@ -1,4 +1,4 @@
-"""Tests for Module 8 — Tensor parallelism."""
+"""Tests for Module 7 — Tensor parallelism."""
 
 import torch
 import torch.nn as nn
@@ -33,3 +33,29 @@ def test_tensor_parallel_mlp_equivalence():
     tp_out = out_r0 + out_r1
 
     assert torch.allclose(ref_out, tp_out, atol=1e-5)
+
+
+def test_single_rank_parallel_layers_equal_dense_linear_with_bias():
+    """With one rank, the parallel layers must reduce to ordinary nn.Linear (bias included)."""
+    from nanolm.tensor_parallel import ColumnParallelLinear, RowParallelLinear
+
+    torch.manual_seed(0)
+    dense = nn.Linear(8, 12)
+    x = torch.randn(3, 8, requires_grad=True)
+    for layer in (ColumnParallelLinear(8, 12, bias=True), RowParallelLinear(8, 12, bias=True)):
+        with torch.no_grad():
+            layer.weight.copy_(dense.weight)
+            layer.bias.copy_(dense.bias)
+        x_tp = x.detach().clone().requires_grad_()
+        torch.testing.assert_close(layer(x_tp), dense(x))
+        layer(x_tp).sum().backward()
+        x_ref = x.detach().clone().requires_grad_()
+        dense(x_ref).sum().backward()
+        torch.testing.assert_close(x_tp.grad, x_ref.grad)
+
+
+def test_two_rank_sharded_mlp_forward_and_backward(torchrun):
+    """Real collectives: outputs, input gradients and both weight shards match."""
+    result = torchrun("07_tensor_parallel.py")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "PASS:" in result.stdout

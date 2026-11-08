@@ -78,3 +78,63 @@ def test_packed_dataset_batching_and_target_shift():
 
     # Next-token prediction invariant: y at position t is x at position t+1
     assert (y[:, :-1] == x[:, 1:]).all().item()
+
+
+def test_assign_splits_removes_cross_split_duplicate():
+    from nanolm.data import assign_splits
+
+    records = [
+        ("train-1", "train", "A small model learns from a sequence of tokens."),
+        ("train-2", "train", "A token sequence can cross a document boundary."),
+        ("val-1", "validation", "A held-out document measures a different example."),
+        ("val-2", "validation", "A small  model learns from a sequence of tokens.\n"),
+    ]
+    splits, dropped = assign_splits(records)
+    assert [d for d, _ in splits["train"]] == ["train-1", "train-2"]
+    assert [d for d, _ in splits["validation"]] == ["val-1"]
+    assert dropped == [("val-2", "train-1")]
+    texts = {t for docs in splits.values() for _, t in docs}
+    assert len(texts) == 3
+
+
+def test_pack_places_eot_after_every_document(tmp_path):
+    import numpy as np
+    from nanolm.tokenizer import SimpleCharTokenizer
+
+    tokenizer = SimpleCharTokenizer()
+    docs = ["ab", "c", "de"]
+    n = pack_documents(docs, tokenizer, str(tmp_path / "shard.bin"), tokenizer.eot_token_id)
+    ids = np.fromfile(tmp_path / "shard.bin", dtype=np.uint16).tolist()
+    assert n == len(ids) == 2 + 1 + 1 + 1 + 2 + 1
+    eot_positions = [i for i, t in enumerate(ids) if t == tokenizer.eot_token_id]
+    assert eot_positions == [2, 4, 7]
+    assert tokenizer.decode(ids[:2]) == "ab"
+
+
+def test_pack_rejects_ids_that_overflow_dtype(tmp_path):
+    import numpy as np
+    import pytest
+
+    class Wide:
+        def encode(self, text):
+            return [70_000]
+
+    with pytest.raises(ValueError):
+        pack_documents(["x"], Wide(), str(tmp_path / "bad.bin"), 0, dtype=np.uint16)
+
+
+def test_get_batch_offsets_stay_inside_shard_and_targets_shift(tmp_path):
+    import numpy as np
+
+    n, block = 20, 4
+    np.arange(n, dtype=np.uint16).tofile(tmp_path / "range.bin")
+    dataset = BinaryShardedDataset(str(tmp_path / "range.bin"))
+    np.random.seed(0)
+    starts = set()
+    for _ in range(200):
+        x, y = dataset.get_batch(batch_size=4, block_size=block)
+        assert x.dtype == y.dtype
+        assert (y == x + 1).all()  # on 0..n-1 data the target is the next value
+        starts.update(x[:, 0].tolist())
+    assert max(starts) == n - block - 1  # last window whose target still fits
+    assert min(starts) == 0

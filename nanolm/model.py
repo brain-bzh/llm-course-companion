@@ -101,10 +101,11 @@ class CausalSelfAttention(nn.Module):
             # Explicit attention computation (Module 1 & incremental decode in Module 9)
             # QK^T / sqrt(d_k) -> (B, n_head, T, total_T)
             att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(self.head_dim))
-            if kv_cache is None:
-                # Causal masking: mask future positions
-                att = att.masked_fill(self.bias_mask[:, :, :T, :total_T] == 0, float("-inf"))
-            # In incremental decode with past cache, each newly appended token can attend to all past tokens
+            # Causal mask with an offset: the T new queries sit at absolute positions
+            # past_len .. past_len + T - 1 and may only see keys up to their own position.
+            # Without a cache past_len = 0; for one decoded token the row is all ones.
+            past_len = total_T - T
+            att = att.masked_fill(self.bias_mask[:, :, past_len : past_len + T, :total_T] == 0, float("-inf"))
 
             att = F.softmax(att, dim=-1)
             att = self.attn_dropout(att)

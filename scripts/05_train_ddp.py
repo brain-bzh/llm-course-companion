@@ -1,18 +1,18 @@
 """Module 5: DDP accumulation compared with the identical global batch.
 
-Run: uv run torchrun --standalone --nproc_per_node=2 scripts/05_train_ddp.py
+Run: uv run torchrun --standalone --local-addr=127.0.0.1 --nproc_per_node=2 scripts/05_train_ddp.py
 This is a correctness experiment on synthetic data, not a scaling benchmark.
 """
 
 import argparse
 import os
-import sys
 from contextlib import nullcontext
 
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from nanolm.distributed import configure_local_gloo
 from nanolm.model import GPTConfig, MiniGPT
 
 
@@ -25,8 +25,7 @@ def main():
     if min(args.accum, args.steps) < 1:
         parser.error("accum and steps must be positive")
     torch.set_num_threads(1)
-    if sys.platform == "darwin":
-        os.environ.setdefault("GLOO_SOCKET_IFNAME", "lo0")
+    configure_local_gloo()
     rank, world = int(os.environ.get("RANK", 0)), int(os.environ.get("WORLD_SIZE", 1))
     local_rank = int(os.environ.get("LOCAL_RANK", 0))
     device = torch.device(f"cuda:{local_rank}" if args.device == "cuda" else "cpu")

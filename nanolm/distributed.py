@@ -1,13 +1,38 @@
 """Distributed Data Parallelism (DDP) helpers.
 
 Covers:
-- Module 7: Distributed data parallelism (setup, all-reduce, rank synchronization, token accounting).
+- Module 5: Distributed data parallelism (setup, all-reduce, rank synchronization, token accounting).
 """
 
 import os
+import sys
 from typing import Optional, Tuple
 import torch
 import torch.distributed as dist
+
+
+_LOOPBACK = {"linux": "lo", "darwin": "lo0"}
+
+
+def configure_local_gloo() -> None:
+    """Pin Gloo to the loopback interface for single-machine CPU exercises.
+
+    Gloo picks a network interface by resolving the hostname. On laptops this
+    can select an unreachable address (VPN, Wi-Fi, IPv6) and hang. When every
+    rank runs on this machine, the loopback interface is always correct.
+
+    - Linux: `lo`; macOS: `lo0`; Windows: left to Gloo's default.
+    - Never overrides a value you exported yourself.
+    - Does nothing for multi-node jobs (LOCAL_WORLD_SIZE != WORLD_SIZE).
+
+    Call it in each worker before `dist.init_process_group("gloo")`.
+    """
+    world = os.environ.get("WORLD_SIZE")
+    if world is not None and os.environ.get("LOCAL_WORLD_SIZE", world) != world:
+        return
+    interface = _LOOPBACK.get(sys.platform)
+    if interface is not None:
+        os.environ.setdefault("GLOO_SOCKET_IFNAME", interface)
 
 
 def setup_distributed() -> Tuple[bool, int, int, int]:
@@ -22,6 +47,8 @@ def setup_distributed() -> Tuple[bool, int, int, int]:
         world_size = int(os.environ["WORLD_SIZE"])
 
         backend = "nccl" if torch.cuda.is_available() else "gloo"
+        if backend == "gloo":
+            configure_local_gloo()
         if torch.cuda.is_available():
             torch.cuda.set_device(local_rank)
 

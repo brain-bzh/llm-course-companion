@@ -1,7 +1,7 @@
 """Sparse Mixture of Experts (MoE) layer.
 
 Covers:
-- Module 13: Beyond dense Transformers (MoE, top-k routing, load balancing loss).
+- Module 11: Frontier architectures (MoE, top-k routing, load balancing loss).
 """
 
 from typing import Tuple
