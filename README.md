@@ -93,6 +93,10 @@ the reference for a file later, commit your work first, then run
 `git show "$(cat .course-reference-revision):nanolm/<file>.py" > nanolm/<file>.py`.
 The lab guides say which file each session replaces.
 
+The [continuous project](https://brain-bzh.github.io/llm-course/project/) page
+describes how these labs build one system over the course, the milestones and
+their minimum evidence, and the lab log every student keeps.
+
 ## 3. Module-by-Module Topic Coverage
 
 | Module | Hands-on starter (you implement) | Reference modules | Runnable scripts | Exit criterion |
