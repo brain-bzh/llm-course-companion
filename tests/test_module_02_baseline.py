@@ -1,7 +1,14 @@
+"""Tests for Module 2, Session 8 — checkpoints and the recoverable baseline."""
+
 from dataclasses import replace
+
 import pytest
 import torch
+
 from nanolm.baseline import BaselineConfig, document_manifest, run_baseline
+from nanolm.model import GPTConfig, MiniGPT
+from nanolm.optim import configure_optimizers
+from nanolm.train import load_checkpoint, optimizer_step, save_checkpoint, train_step
 
 TRAIN = ['Training text with a distinct document identity. ' * 3,
          'Another document teaches the model about letters. ' * 3]
@@ -40,3 +47,33 @@ def test_resume_rejects_changed_data_or_schedule(tmp_path):
     for docs, cfg in ((VAL + ['new document'], CFG), (VAL, replace(CFG, steps=5))):
         with pytest.raises(ValueError, match='differs'):
             run_baseline(TRAIN, docs, tmp_path, cfg, resume=tmp_path/'checkpoint.pt')
+
+
+def test_checkpoint_round_trip_preserves_logits(tmp_path):
+    """Saving and restoring must preserve model outputs and optimizer state."""
+    torch.manual_seed(42)
+    config = GPTConfig(vocab_size=64, block_size=16, n_layer=1, n_head=2, n_embd=16)
+    model = MiniGPT(config)
+    optimizer = configure_optimizers(model, learning_rate=1e-3)
+    inputs = torch.randint(0, config.vocab_size, (2, 8))
+    targets = torch.randint(0, config.vocab_size, (2, 8))
+    loss = train_step(model, optimizer, inputs, targets)
+    optimizer_step(model, optimizer)
+
+    model.eval()
+    with torch.no_grad():
+        logits_before, _, _ = model(inputs)
+
+    checkpoint_path = tmp_path / "round-trip.pt"
+    save_checkpoint(checkpoint_path, model, optimizer, config, step=1, val_loss=loss)
+    restored_model = MiniGPT(config)
+    restored_optimizer = configure_optimizers(restored_model, learning_rate=1e-3)
+    metadata = load_checkpoint(checkpoint_path, restored_model, restored_optimizer)
+
+    restored_model.eval()
+    with torch.no_grad():
+        logits_after, _, _ = restored_model(inputs)
+
+    torch.testing.assert_close(logits_before, logits_after, rtol=0.0, atol=0.0)
+    assert metadata["step"] == 1
+    assert restored_optimizer.state_dict()["state"]

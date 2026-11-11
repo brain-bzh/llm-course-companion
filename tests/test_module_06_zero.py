@@ -1,5 +1,6 @@
 """Tests for Module 6 — sharded optimizer state, FSDP2, and checkpoint formats."""
 
+import pytest
 import torch
 
 from nanolm.model import GPTConfig, MiniGPT
@@ -34,6 +35,15 @@ def test_tied_weights_are_counted_once():
     assert optimizer.numel == sum(p.numel() for p in model.parameters())
 
 
+@pytest.mark.parametrize("nproc", [2, 3])
+def test_sharded_adamw_matches_torch_adamw_across_ranks(torchrun, nproc):
+    """Three ranks do not divide the parameter count: the last shard is padded."""
+    result = torchrun("06_zero_manual.py", nproc=nproc)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "PASS:" in result.stdout
+
+
+@pytest.mark.extension
 def test_two_rank_sharded_adamw_with_global_clipping(torchrun):
     result = torchrun("06_zero_manual.py", "--clip", "0.5")
     assert result.returncode == 0, result.stdout + result.stderr
