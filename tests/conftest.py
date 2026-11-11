@@ -13,6 +13,10 @@ environment variables torchrun would set (RANK, WORLD_SIZE, MASTER_ADDR, ...).
 
 `test_torchrun_launcher.py` still checks the exact student command once.
 Tests that start several processes are marked `distributed`.
+
+Tests of optional lab extensions are marked `extension` and skipped unless
+pytest runs with `--extensions`, so that "the module's tests pass" means the
+core exercise is done. CI and the reference check run them all.
 """
 
 import os
@@ -74,7 +78,18 @@ def torchrun():
     return run_ranks
 
 
-def pytest_collection_modifyitems(items):
+def pytest_addoption(parser):
+    parser.addoption(
+        "--extensions", action="store_true",
+        help="also run the tests of optional lab extensions (skipped by default)",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    run_extensions = config.getoption("--extensions")
+    skip_extension = pytest.mark.skip(reason="optional extension: add --extensions to run it")
     for item in items:
         if "torchrun" in getattr(item, "fixturenames", ()):
             item.add_marker(pytest.mark.distributed)
+        if "extension" in item.keywords and not run_extensions:
+            item.add_marker(skip_extension)

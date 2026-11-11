@@ -1,4 +1,7 @@
-"""Session 2 starter — optimizer grouping and learning-rate schedule."""
+"""Session 7 starter — optimizer grouping and learning-rate schedule.
+
+Copy over nanolm/optim.py, then: uv run pytest tests/test_module_02_optim.py -q
+"""
 
 import torch
 import torch.nn as nn

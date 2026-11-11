@@ -66,7 +66,7 @@ jobs:
           uv pip install --no-deps -e .
 
       - name: Run tests
-        run: uv run --no-sync pytest tests/ -q --durations=5
+        run: uv run --no-sync pytest tests/ -q --durations=5 --extensions
 
       - name: Verify every starter fails cleanly before it is implemented
         run: uv run --no-sync python scripts/check_starters.py
