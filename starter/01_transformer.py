@@ -1,4 +1,4 @@
-"""Session 1 starter — build a decoder-only Transformer from first principles.
+"""Sessions 2–4 starter — build a decoder-only Transformer from first principles.
 
 Copy this file over ``nanolm/model.py`` before starting the exercise.  Keep the
 public class names and method signatures intact: the tests use them as the

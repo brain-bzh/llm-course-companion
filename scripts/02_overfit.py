@@ -1,6 +1,13 @@
-"""Session 2 capstone: overfit one batch and verify checkpoint recovery."""
+"""Module 2 capstone: overfit one batch, then (from Session 8) a checkpoint round-trip.
+
+Session 7 implements the update; the script then reports PASS for the overfit and
+says that the checkpoint is not implemented yet. After Session 8 implements
+save_checkpoint and load_checkpoint, the same script also proves that a fresh model
+restored from the checkpoint gives bit-identical logits.
+"""
 
 import tempfile
+from pathlib import Path
 
 import torch
 
@@ -10,7 +17,7 @@ from nanolm.train import load_checkpoint, optimizer_step, save_checkpoint, train
 
 
 def main() -> None:
-    print("=== Session 2: Tiny-Batch Overfit ===")
+    print("=== Module 2: Tiny-Batch Overfit ===")
     torch.manual_seed(42)
     config = GPTConfig(
         vocab_size=64,
@@ -40,19 +47,22 @@ def main() -> None:
     print(f"Initial loss: {initial_loss:.4f} -> final loss: {loss:.4f}")
     assert loss < 0.1, f"Expected loss < 0.1, got {loss:.4f}"
 
+    print("PASS: the small NanoLM memorizes one batch.")
+
     model.eval()
     with torch.no_grad():
         logits_before, _, _ = model(inputs)
 
-    with tempfile.NamedTemporaryFile(suffix=".pt") as checkpoint:
-        save_checkpoint(checkpoint.name, model, optimizer, config, step=80, val_loss=loss)
-        restored_model = MiniGPT(config)
-        restored_optimizer = configure_optimizers(
-            restored_model,
-            weight_decay=0.0,
-            learning_rate=5e-3,
-        )
-        metadata = load_checkpoint(checkpoint.name, restored_model, restored_optimizer)
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint = str(Path(tmp) / "overfit.pt")
+            save_checkpoint(checkpoint, model, optimizer, config, step=80, val_loss=loss)
+            restored_model = MiniGPT(config)
+            restored_optimizer = configure_optimizers(restored_model, weight_decay=0.0, learning_rate=5e-3)
+            metadata = load_checkpoint(checkpoint, restored_model, restored_optimizer)
+    except NotImplementedError:
+        print("Checkpoint round-trip: not implemented yet (Session 8).")
+        return
 
     restored_model.eval()
     with torch.no_grad():
@@ -60,7 +70,7 @@ def main() -> None:
     torch.testing.assert_close(logits_before, logits_after, rtol=0.0, atol=0.0)
 
     print(f"Checkpoint restored at step {metadata['step']} with identical logits.")
-    print("PASS: the small NanoLM learns one batch and survives a checkpoint round-trip.")
+    print("PASS: the checkpoint round-trip preserves the model exactly.")
 
 
 if __name__ == "__main__":

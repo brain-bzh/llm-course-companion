@@ -28,12 +28,28 @@ def test_single_replica_sync_is_a_no_op():
     before = [p.grad.clone() for p in model.parameters()]
     broadcast_parameters(model)
     assert allreduce_gradients(model) == 0
+    for grad, expected in zip((p.grad for p in model.parameters()), before):
+        assert torch.equal(grad, expected)
+
+
+@pytest.mark.extension
+def test_single_replica_flat_sync_is_a_no_op():
+    torch.manual_seed(0)
+    model = MiniGPT(GPTConfig(vocab_size=32, block_size=8, n_layer=1, n_head=2, n_embd=16))
+    x = torch.randint(0, 32, (2, 9))
+    _, loss, _ = model(x[:, :-1].contiguous(), targets=x[:, 1:].contiguous())
+    loss.backward()
+    before = [p.grad.clone() for p in model.parameters()]
     assert allreduce_gradients_flat(model) == 0
     for grad, expected in zip((p.grad for p in model.parameters()), before):
         assert torch.equal(grad, expected)
 
 
-@pytest.mark.parametrize("args", [[], ["--accum", "4", "--sync", "flat"]])
+@pytest.mark.parametrize("args", [
+    [],
+    ["--accum", "4"],
+    pytest.param(["--accum", "4", "--sync", "flat"], marks=pytest.mark.extension, id="flat-extension"),
+])
 def test_two_rank_manual_ddp_matches_global_batch(torchrun, args):
     result = torchrun("05_manual_ddp.py", *args)
     assert result.returncode == 0, result.stdout + result.stderr

@@ -102,14 +102,14 @@ their minimum evidence, and the lab log every student keeps.
 | Module | Hands-on starter (you implement) | Reference modules | Runnable scripts | Exit criterion |
 | :---: | :--- | :--- | :--- | :--- |
 | **1** [Transformer](https://brain-bzh.github.io/llm-course/companion/01-transformer/) | `starter/01_transformer.py` | `nanolm/model.py`, `nanolm/gpt2.py` | `01_gpt2_parity.py` | Your model reproduces official GPT-2 logits |
-| **2** [Training loop](https://brain-bzh.github.io/llm-course/companion/02-training-loop/) | `starter/02_training/` | `nanolm/optim.py`, `nanolm/train.py`, `nanolm/baseline.py` | `02_overfit.py`, `02_train_baseline.py` | One-batch loss `< 0.1`; exact checkpoint resume |
+| **2** [Training loop](https://brain-bzh.github.io/llm-course/companion/02-training-loop/) | `starter/02_training/` | `nanolm/optim.py`, `nanolm/train.py`, `nanolm/baseline.py` | `02_overfit.py`, `02_train_baseline.py` | Session 7: one-batch loss `< 0.1`; Session 8: exact checkpoint resume |
 | **3** [Data pipeline](https://brain-bzh.github.io/llm-course/companion/03-data-pipeline/) | `starter/03_data.py` | `nanolm/data.py`, `nanolm/tokenizer.py` | `03_prepare_dataset.py` | Disjoint splits, visible boundaries, shifted batches |
 | **4** [Single-GPU performance](https://brain-bzh.github.io/llm-course/companion/04-single-gpu/) | `starter/04_profile_utils.py` (+ SDPA branch in your model) | `nanolm/profile_utils.py` | `04_check_execution.py`, `04_single_gpu_perf.py` | Predicted FLOPs/memory; one controlled ablation |
 | **5** [DDP](https://brain-bzh.github.io/llm-course/companion/05-ddp/) | `starter/05_ddp_manual.py` | `nanolm/ddp_manual.py`, `nanolm/distributed.py` | `05_manual_ddp.py`, `05_train_ddp.py` | Hand-written DDP equals one global-batch run |
 | **6** [FSDP and ZeRO](https://brain-bzh.github.io/llm-course/companion/06-fsdp/) | `starter/06_zero.py` | `nanolm/zero.py`, `nanolm/fsdp_utils.py` | `06_zero_manual.py`, `06_fsdp2.py`, `06_checkpoint_formats.py` | Sharded AdamW and FSDP2 match the reference; measured per-rank state |
 | **7** [Tensor parallelism](https://brain-bzh.github.io/llm-course/companion/07-tensor-parallelism/) | `starter/07_tensor_parallel.py` | `nanolm/tensor_parallel.py` | `07_tensor_parallel.py` | Two-rank forward and backward equal the dense MLP |
 | **8** [CP, PP and EP](https://brain-bzh.github.io/llm-course/companion/08-context-pipeline/) | edit `MODEL`/`LAYOUT` in the script | `nanolm/parallelism_calc.py` | `08_parallelism_layout.py`, `08_parallelism_sizing.py` | Defended rank layout with stated assumptions |
-| **9** [KV cache](https://brain-bzh.github.io/llm-course/companion/09-kv-cache/) | `starter/09_generate.py` (+ cache path in your model) | `nanolm/generate.py`, `nanolm/kv_cache.py` | `09_kv_cache_bench.py` | Cached and uncached logits/tokens agree |
+| **9** [KV cache](https://brain-bzh.github.io/llm-course/companion/09-kv-cache/) | `starter/09_generate.py`, `starter/09_kv_cache_methods.py` (paste into your model) | `nanolm/generate.py`, `nanolm/kv_cache.py` | `09_kv_cache_bench.py` | Cached and uncached logits/tokens agree |
 | **10** [Serving](https://brain-bzh.github.io/llm-course/companion/10-serving/) | optional | `nanolm/serving_sim.py` | `10_serving_benchmark.py` | Interpret TTFT/ITL/throughput across four policies |
 | **11** [Frontier (optional)](https://brain-bzh.github.io/llm-course/companion/11-frontier-architectures/) | — | `nanolm/moe.py` | `11_frontier_exploration.py` | Optional modeling |
 
@@ -125,7 +125,8 @@ llm-course-companion/
 │   ├── 05_ddp_manual.py         # -> nanolm/ddp_manual.py
 │   ├── 06_zero.py               # -> nanolm/zero.py
 │   ├── 07_tensor_parallel.py    # -> nanolm/tensor_parallel.py
-│   └── 09_generate.py           # -> nanolm/generate.py
+│   ├── 09_generate.py           # -> nanolm/generate.py
+│   └── 09_kv_cache_methods.py   # paste-in: KV-cache methods for YOUR nanolm/model.py
 ├── nanolm/                      # Complete reference library
 │   ├── model.py                 # Decoder-only GPT, explicit/SDPA attention, KV-cache path
 │   ├── gpt2.py                  # Hugging Face GPT-2 weight converter
@@ -153,9 +154,13 @@ llm-course-companion/
 ## 5. Verification & Testing
 
 ```bash
-uv run pytest tests/ -v                 # reference implementation: everything passes
+uv run pytest tests/ -v --extensions    # reference implementation: everything passes
 uv run python scripts/check_starters.py # each starter imports and fails only on its TODOs
 ```
+
+Tests of optional lab extensions (marked `extension`) are skipped unless pytest
+runs with `--extensions`, so a student's "the module's tests pass" means the core
+exercise is done. Add the flag once you attempt an extension.
 
 Distributed tests (marked `distributed`) start real two-rank CPU jobs: the
 helper in `tests/conftest.py` launches the worker processes directly, and

@@ -1,4 +1,13 @@
-"""Session 2 starter — backward pass, optimizer step, and checkpoints."""
+"""Module 2 starter — the training step (Session 7) and checkpoints (Session 8).
+
+Copy over nanolm/train.py.
+- Session 7: implement train_step and optimizer_step, then run
+      uv run pytest tests/test_module_02_optim.py -q
+      uv run python scripts/02_overfit.py
+- Session 8: implement save_checkpoint and load_checkpoint (including the RNG
+  states), then run
+      uv run pytest tests/test_module_02_baseline.py -q
+"""
 
 from typing import Any, Optional
 
@@ -45,10 +54,17 @@ def save_checkpoint(
     val_loss: float,
     extra_state: Optional[dict[str, Any]] = None,
 ) -> None:
-    """Save model, optimizer, configuration, progress and optional recovery metadata.
+    """Session 8: save model, optimizer, configuration, progress and recovery metadata.
 
     For baseline recovery, also save Python, NumPy and PyTorch RNG states.
     """
+    # TODO: build one dictionary with the keys "model" (model.state_dict()),
+    #       "optimizer" (optimizer.state_dict()), "config", "step", "val_loss" and
+    #       "extra_state" (extra_state or {}). The tests and the baseline read these keys.
+    # TODO: add "rng": the Python (random.getstate), NumPy (np.random.get_state)
+    #       and PyTorch (torch.get_rng_state) states. Add `import random` and
+    #       `import numpy as np` at the top of the file.
+    # TODO: write it with torch.save(state, path).
     raise NotImplementedError
 
 
@@ -59,7 +75,12 @@ def load_checkpoint(
     *,
     restore_rng: bool = False,
 ) -> dict[str, Any]:
-    """Restore model/optimizer and optionally the saved RNG states."""
+    """Session 8: restore model/optimizer and optionally the saved RNG states."""
+    # TODO: torch.load(path, weights_only=False), then load the model state, and the
+    #       optimizer state when an optimizer is given.
+    # TODO: if restore_rng, restore the three RNG states saved above (random.setstate,
+    #       np.random.set_state, torch.set_rng_state).
+    # TODO: return the loaded dictionary so the caller can read step and extra_state.
     raise NotImplementedError
 
 
